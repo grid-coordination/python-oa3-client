@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test: run OA3Client against a live VTN-RI + Mosquitto.
+"""Smoke test: run VenClient/BlClient against a live VTN-RI + Mosquitto.
 
 Requires:
   - VTN-RI running at http://localhost:8080/openadr3/3.1.0
@@ -20,7 +20,7 @@ import base64
 import os
 import time
 
-from openadr3_client import OA3Client, extract_topics
+from openadr3_client import VenClient, BlClient, extract_topics
 from openadr3.api import success, body
 
 VTN_URL = os.environ.get("VTN_URL", "http://localhost:8080/openadr3/3.1.0")
@@ -85,9 +85,9 @@ def main():
     else:
         BL_TOKEN, VEN_TOKEN = _detect_auth_mode(VTN_URL)
 
-    # ── BL client: create a program ──────────────────────────────
+    # -- BL client: create a program --
     section("1. BL Client — create a program")
-    with OA3Client(client_type="bl", url=VTN_URL, token=BL_TOKEN) as bl:
+    with BlClient(url=VTN_URL, token=BL_TOKEN) as bl:
         resp = bl.create_program({
             "programName": "smoke-test-program",
             "programLongName": "Smoke Test Program",
@@ -105,24 +105,28 @@ def main():
         print(f"  Created program: {program_id}")
         print(f"  Name: {program['programName']}")
 
-    # ── VEN client: register, list programs, MQTT ────────────────
+    # -- VEN client: register, list programs, MQTT --
     section("2. VEN Client — register and list programs")
-    with OA3Client(client_type="ven", url=VTN_URL, token=VEN_TOKEN) as ven:
+    with VenClient(url=VTN_URL, token=VEN_TOKEN) as ven:
         # Register VEN
         ven.register("smoke-test-ven")
         print(f"  VEN registered: id={ven.ven_id} name={ven.ven_name}")
 
-        # List programs (coerced entities)
+        # List programs (coerced entities via __getattr__)
         progs = ven.programs()
         print(f"  Programs found: {len(progs)}")
         for p in progs:
             print(f"    - {p.program_name} (id={p.id})")
 
+        # Find program by name
+        found = ven.find_program_by_name("smoke-test-program")
+        print(f"  Found by name: {found['programName'] if found else 'NOT FOUND'}")
+
         # List events
         evts = ven.events()
         print(f"  Events found: {len(evts)}")
 
-        # ── MQTT topic discovery ─────────────────────────────────
+        # -- MQTT topic discovery --
         section("3. MQTT topic discovery")
         resp = ven.get_mqtt_topics_ven()
         print(f"  VEN topics response: {resp.status_code}")
@@ -138,30 +142,30 @@ def main():
             topics2 = extract_topics(resp2)
             print(f"  Topics: {topics2}")
 
-        # ── MQTT connection ──────────────────────────────────────
-        section("4. MQTT connection and message collection")
-        ven.connect_mqtt(MQTT_BROKER, client_id="smoke-test-ven")
+        # -- MQTT channel --
+        section("4. MQTT channel — connect and collect messages")
+        mqtt = ven.add_mqtt(MQTT_BROKER, client_id="smoke-test-ven")
+        mqtt.start()
         print(f"  Connected to MQTT broker")
 
-        # Subscribe to a topic
-        ven.subscribe_mqtt("openadr3/#")
+        mqtt.subscribe_topics(["openadr3/#"])
         print(f"  Subscribed to openadr3/#")
 
-        # Wait briefly for any messages
         time.sleep(1)
-        msgs = ven.mqtt_messages
+        msgs = mqtt.messages
         print(f"  Messages received: {len(msgs)}")
         for m in msgs[:5]:
             print(f"    topic={m.topic} payload={m.payload}")
 
-        ven.disconnect_mqtt()
+        mqtt.stop()
         print(f"  MQTT disconnected")
 
-        # ── Webhook receiver ──────────────────────────────────────
-        section("5. Webhook receiver")
+        # -- Webhook channel --
+        section("5. Webhook channel")
         WEBHOOK_TOKEN = "smoke-test-webhook-token"
-        ven.start_webhook_server(port=9876, bearer_token=WEBHOOK_TOKEN)
-        print(f"  Webhook server started at {ven.webhook_callback_url}")
+        webhook = ven.add_webhook(port=9876, bearer_token=WEBHOOK_TOKEN)
+        webhook.start()
+        print(f"  Webhook server started at {webhook.callback_url}")
 
         # Create a subscription pointing to our webhook
         sub_resp = ven.create_subscription({
@@ -183,7 +187,7 @@ def main():
             print(f"  Subscription creation: {sub_resp.status_code} (VTN-RI may not callback)")
 
         # Trigger a notification by updating the program
-        with OA3Client(client_type="bl", url=VTN_URL, token=BL_TOKEN) as bl2:
+        with BlClient(url=VTN_URL, token=BL_TOKEN) as bl2:
             bl2.update_program(program_id, {
                 "programName": "smoke-test-program-updated",
                 "programLongName": "Smoke Test Program Updated",
@@ -197,13 +201,12 @@ def main():
             })
             print(f"  Program updated to trigger webhook")
 
-        # Wait for webhook notification
-        webhook_msgs = ven.await_webhook_messages(1, timeout=3.0)
+        webhook_msgs = webhook.await_messages(1, timeout=3.0)
         print(f"  Webhook messages received: {len(webhook_msgs)}")
         for m in webhook_msgs[:5]:
             print(f"    path={m.path} payload_type={type(m.payload).__name__}")
 
-        ven.stop_webhook_server()
+        webhook.stop()
         print(f"  Webhook server stopped")
 
         # Clean up subscription
@@ -211,7 +214,7 @@ def main():
             del_resp = ven.delete_subscription(sub_id)
             print(f"  Delete subscription {sub_id}: {del_resp.status_code}")
 
-        # ── VEN-scoped topic methods ─────────────────────────────
+        # -- VEN-scoped topic methods --
         section("6. VEN-scoped endpoints (default to registered ven_id)")
         for method_name in [
             "get_mqtt_topics_ven",
@@ -220,24 +223,22 @@ def main():
             "get_mqtt_topics_ven_resources",
         ]:
             method = getattr(ven, method_name)
-            resp = method()  # No ven_id arg — defaults to registered
+            resp = method()
             print(f"  {method_name}(): {resp.status_code}")
 
-        # ── Introspection ────────────────────────────────────────
+        # -- Introspection (via __getattr__) --
         section("7. Introspection")
         routes = ven.all_routes()
         print(f"  Routes in spec: {len(routes)}")
 
-    # ── BL cleanup ───────────────────────────────────────────────
+    # -- BL cleanup --
     section("8. Cleanup")
-    with OA3Client(client_type="bl", url=VTN_URL, token=BL_TOKEN) as bl:
-        # Delete program
+    with BlClient(url=VTN_URL, token=BL_TOKEN) as bl:
         resp = bl.delete_program(program_id)
         print(f"  Delete program {program_id}: {resp.status_code}")
 
-    # Delete the VEN (need ven token)
-    with OA3Client(client_type="ven", url=VTN_URL, token=VEN_TOKEN) as ven:
-        # Find the ven we created
+    # Delete the VEN
+    with VenClient(url=VTN_URL, token=VEN_TOKEN) as ven:
         v = ven.find_ven_by_name("smoke-test-ven")
         if v:
             resp = ven.delete_ven(v["id"])
