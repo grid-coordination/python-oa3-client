@@ -13,6 +13,8 @@ from openadr3.api import (
 )
 from openadr3.auth import fetch_token
 
+from openadr3_client.discovery import DiscoveryMode, resolve_url
+
 log = logging.getLogger(__name__)
 
 
@@ -27,16 +29,26 @@ class BaseClient:
 
     def __init__(
         self,
-        url: str,
+        url: str | None = None,
         token: str | None = None,
         client_id: str | None = None,
         client_secret: str | None = None,
         spec_version: str = "3.1.0",
         spec_path: str | None = None,
         validate: bool = False,
+        discovery: str | DiscoveryMode = "never",
+        discovery_timeout: float = 3.0,
     ) -> None:
         if not token and not (client_id and client_secret):
             raise ValueError("Provide either token or both client_id and client_secret")
+
+        self.discovery_mode = DiscoveryMode(discovery)
+        self.discovery_timeout = discovery_timeout
+
+        if self.discovery_mode == DiscoveryMode.NEVER and not url:
+            raise ValueError("url is required when discovery='never'")
+        if self.discovery_mode == DiscoveryMode.LOCAL_WITH_FALLBACK and not url:
+            raise ValueError("url is required when discovery='local_with_fallback'")
 
         self.url = url
         self.token = token
@@ -46,6 +58,7 @@ class BaseClient:
         self.spec_path = spec_path
         self.validate = validate
 
+        self._resolved_url: str | None = None
         self._api: OpenADRClient | None = None
         self._lock = threading.Lock()
 
@@ -54,19 +67,23 @@ class BaseClient:
     def start(self) -> BaseClient:
         """Start the client — creates the underlying OpenADRClient.
 
-        If client_id/client_secret were provided instead of a token,
-        fetches a token from the VTN's auth server on first start.
+        Resolves the VTN URL via mDNS discovery (if configured), then
+        fetches an auth token if needed, and creates the OpenADRClient.
         """
         if self._api:
             log.info(
                 "%s already started: url=%s",
-                type(self).__name__, self.url,
+                type(self).__name__, self._resolved_url,
             )
             return self
 
+        self._resolved_url = resolve_url(
+            self.discovery_mode, self.url, self.discovery_timeout,
+        )
+
         if not self.token:
             self.token = fetch_token(
-                base_url=self.url,
+                base_url=self._resolved_url,
                 client_id=self.client_id,
                 client_secret=self.client_secret,
             )
@@ -74,14 +91,14 @@ class BaseClient:
 
         create_fn = create_ven_client if self._client_type == "ven" else create_bl_client
         self._api = create_fn(
-            base_url=self.url,
+            base_url=self._resolved_url,
             token=self.token,
             spec_path=self.spec_path,
             validate=self.validate,
         )
         log.info(
             "%s started: type=%s url=%s",
-            type(self).__name__, self._client_type, self.url,
+            type(self).__name__, self._client_type, self._resolved_url,
         )
         return self
 

@@ -10,6 +10,7 @@ Built on top of [openadr3](https://github.com/grid-coordination/python-oa3) (Pyd
 pip install python-oa3-client            # core: VEN/BL clients, API access
 pip install python-oa3-client[mqtt]      # + MQTT notifications
 pip install python-oa3-client[webhooks]  # + webhook receiver
+pip install python-oa3-client[mdns]      # + mDNS/DNS-SD VTN discovery
 pip install python-oa3-client[all]       # everything
 ```
 
@@ -19,7 +20,8 @@ The core package depends only on `openadr3`. Notification channels are optional 
 |-------|------|------------|
 | `mqtt` | MQTT broker connection, topic discovery, message collection | [ebus-mqtt-client](https://github.com/electrification-bus/ebus-mqtt-client) (paho-mqtt v2) |
 | `webhooks` | HTTP webhook receiver for VTN callbacks | [Flask](https://flask.palletsprojects.com/) |
-| `all` | Both of the above | — |
+| `mdns` | mDNS/DNS-SD VTN discovery (`_openadr3._tcp.`) | [zeroconf](https://github.com/python-zeroconf/python-zeroconf) |
+| `all` | All of the above | — |
 
 ## Architecture
 
@@ -55,6 +57,74 @@ For the **OpenADR 3 VTN Reference Implementation**, the default auth uses basic 
 import base64
 bl_token = base64.b64encode(b"bl_client:1001").decode()
 ven_token = base64.b64encode(b"ven_client:999").decode()
+```
+
+## mDNS/DNS-SD Discovery
+
+Requires: `pip install python-oa3-client[mdns]`
+
+The OpenADR 3.1.0 spec defines mDNS service discovery for local VTNs using service type `_openadr3._tcp.`. Clients can discover VTNs on the local network without a configured URL.
+
+### Discovery modes
+
+| Mode | Behavior |
+|------|----------|
+| `"never"` (default) | Skip mDNS, use configured `url`. Current behavior. |
+| `"prefer_local"` | Try mDNS; use discovered VTN if found; fall back to `url`; raise if neither. |
+| `"local_with_fallback"` | Try mDNS; fall back to configured `url` if not found (requires `url`). |
+| `"require_local"` | Try mDNS; raise if no VTN found. No `url` needed. |
+
+### Zero-config VEN
+
+```python
+from openadr3_client import VenClient
+
+# No URL needed — discovers VTN on the local network
+with VenClient(token=token, discovery="require_local") as ven:
+    ven.register("my-thermostat")
+    events = ven.events()
+```
+
+### Discovery with cloud fallback
+
+```python
+with VenClient(
+    url="https://cloud-vtn.example.com/openadr3/3.1.0",
+    token=token,
+    discovery="local_with_fallback",
+    discovery_timeout=3.0,
+) as ven:
+    # Uses local VTN if found, otherwise cloud URL
+    ven.register("my-thermostat")
+```
+
+### Standalone discovery
+
+```python
+from openadr3_client import discover_vtns
+
+vtns = discover_vtns(timeout=3.0)
+for v in vtns:
+    print(f"{v.name} at {v.url} (version={v.version})")
+```
+
+### Advertising a VTN for testing
+
+For testing mDNS discovery without modifying the VTN itself:
+
+```python
+from openadr3_client import advertise_vtn
+
+with advertise_vtn(
+    host="127.0.0.1",
+    port=8080,
+    base_path="/openadr3/3.1.0",
+    local_url="http://127.0.0.1:8080/openadr3/3.1.0",
+    version="3.1.0",
+) as adv:
+    # VTN is now visible via mDNS
+    # ... run discovery tests ...
+# Service unregistered on exit
 ```
 
 ## VEN Client
@@ -259,7 +329,9 @@ The standalone `MQTTConnection`, `WebhookReceiver`, `extract_topics`, `normalize
 ## Examples
 
 - [`examples/smoke_test.py`](examples/smoke_test.py) — integration test against live VTN-RI and Mosquitto
+- [`examples/smoke_test_mdns.py`](examples/smoke_test_mdns.py) — mDNS discovery integration test (advertise + discover + connect)
 - [`examples/ven_workflow.py`](examples/ven_workflow.py) — documented VEN developer workflow
+- [`examples/ven_mdns.py`](examples/ven_mdns.py) — zero-config VEN that discovers its VTN via mDNS
 - [`doc/ven-bl-client-guide.md`](doc/ven-bl-client-guide.md) — VEN & BL client use-case walkthrough
 
 ## Development

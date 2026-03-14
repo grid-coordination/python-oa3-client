@@ -8,12 +8,23 @@ from openadr3_client.notifications import (
 )
 from openadr3_client.mqtt import MQTTConnection, MQTTMessage, normalize_broker_uri
 from openadr3_client.webhook import WebhookReceiver, WebhookMessage, detect_lan_ip
+from openadr3_client.discovery import (
+    DiscoveredVTN,
+    DiscoveryMode,
+    advertise_vtn,
+    discover_vtns,
+)
 
 __all__ = [
     # Clients
     "VenClient",
     "BlClient",
     "BaseClient",
+    # Discovery
+    "DiscoveredVTN",
+    "DiscoveryMode",
+    "discover_vtns",
+    "advertise_vtn",
     # Notification channels
     "MqttChannel",
     "WebhookChannel",
