@@ -32,7 +32,7 @@ dependencies = [
 dev = ["pytest"]
 
 [project.urls]
-Repository = "https://github.com/grid-sw/python-oa3-client"
+Repository = "https://github.com/grid-coordination/python-oa3-client"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openadr3_client"]
