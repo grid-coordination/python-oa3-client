@@ -121,7 +121,10 @@ class TestOA3ClientVenRegistration:
         c.register("my-ven")
 
         assert c.ven_id == "new-ven-456"
-        mock_api.create_ven.assert_called_once_with({"venName": "my-ven"})
+        mock_api.create_ven.assert_called_once_with({
+            "objectType": "VEN_VEN_REQUEST",
+            "venName": "my-ven",
+        })
 
     def test_require_ven_id_not_registered(self):
         c = OA3Client(client_type="ven", url="http://test", token="tok")

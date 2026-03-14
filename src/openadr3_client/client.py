@@ -139,7 +139,10 @@ class OA3Client:
                 vid = existing["id"]
                 log.info("VEN found, reusing: name=%s id=%s", ven_name, vid)
             else:
-                resp = self.api.create_ven({"venName": ven_name})
+                resp = self.api.create_ven({
+                    "objectType": "VEN_VEN_REQUEST",
+                    "venName": ven_name,
+                })
                 resp.raise_for_status()
                 vid = resp.json().get("id")
                 if not vid:
