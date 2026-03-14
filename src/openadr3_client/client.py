@@ -15,6 +15,7 @@ from openadr3.api import (
     success,
     body,
 )
+from openadr3.auth import fetch_token
 from openadr3.entities.models import (
     Event,
     Program,
@@ -51,17 +52,23 @@ class OA3Client:
         self,
         client_type: str,
         url: str,
-        token: str,
+        token: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         spec_version: str = "3.1.0",
         spec_path: str | None = None,
         validate: bool = False,
     ) -> None:
         if client_type not in ("ven", "bl"):
             raise ValueError(f"client_type must be 'ven' or 'bl', got {client_type!r}")
+        if not token and not (client_id and client_secret):
+            raise ValueError("Provide either token or both client_id and client_secret")
 
         self.client_type = client_type
         self.url = url
         self.token = token
+        self.client_id = client_id
+        self.client_secret = client_secret
         self.spec_version = spec_version
         self.spec_path = spec_path
         self.validate = validate
@@ -76,10 +83,23 @@ class OA3Client:
     # -- Lifecycle --
 
     def start(self) -> OA3Client:
-        """Start the client — creates the underlying OpenADRClient."""
+        """Start the client — creates the underlying OpenADRClient.
+
+        If client_id/client_secret were provided instead of a token,
+        fetches a token from the VTN's auth server on first start.
+        """
         if self._api:
             log.info("OA3Client already started: type=%s url=%s", self.client_type, self.url)
             return self
+
+        # Fetch token via OAuth2 client credentials if needed
+        if not self.token:
+            self.token = fetch_token(
+                base_url=self.url,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+            )
+            log.info("Token fetched via client credentials: client_id=%s", self.client_id)
 
         create_fn = create_ven_client if self.client_type == "ven" else create_bl_client
         self._api = create_fn(
@@ -256,6 +276,9 @@ class OA3Client:
 
     def get_notifiers(self) -> httpx.Response:
         return self.api.get_notifiers()
+
+    def get_auth_server(self) -> httpx.Response:
+        return self.api.get_auth_server()
 
     # -- Coerced entity access --
 

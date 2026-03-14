@@ -91,6 +91,37 @@ class TestOA3ClientLifecycle:
         with pytest.raises(RuntimeError, match="not started"):
             _ = c.api
 
+    def test_no_token_no_credentials(self):
+        with pytest.raises(ValueError, match="Provide either token"):
+            OA3Client(client_type="ven", url="http://test")
+
+    @patch("openadr3_client.client.create_ven_client")
+    @patch("openadr3_client.client.fetch_token")
+    def test_client_credentials_auth(self, mock_fetch, mock_create):
+        mock_fetch.return_value = "fetched-token"
+        mock_create.return_value = MagicMock()
+
+        c = OA3Client(
+            client_type="ven", url="http://test",
+            client_id="my_client", client_secret="my_secret",
+        )
+        c.start()
+
+        mock_fetch.assert_called_once_with(
+            base_url="http://test",
+            client_id="my_client",
+            client_secret="my_secret",
+        )
+        assert c.token == "fetched-token"
+        mock_create.assert_called_once()
+
+    @patch("openadr3_client.client.create_ven_client")
+    def test_token_skips_fetch(self, mock_create):
+        mock_create.return_value = MagicMock()
+        c = OA3Client(client_type="ven", url="http://test", token="direct-token")
+        c.start()
+        assert c.token == "direct-token"
+
 
 class TestOA3ClientVenRegistration:
     @patch("openadr3_client.client.create_ven_client")
