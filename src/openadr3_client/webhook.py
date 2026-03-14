@@ -16,9 +16,31 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
+import socket
+
 from openadr3.entities import coerce_notification, is_notification
 
 log = logging.getLogger(__name__)
+
+
+def detect_lan_ip() -> str:
+    """Detect this machine's LAN IP address.
+
+    Uses a UDP socket connect to a non-routable address to ask the OS
+    which network interface it would use for outbound traffic. No packets
+    are actually sent.
+
+    Returns the LAN IP as a string (e.g. "192.168.1.50").
+    Falls back to "127.0.0.1" if detection fails.
+    """
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
 
 @dataclass

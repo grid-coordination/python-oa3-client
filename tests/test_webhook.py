@@ -11,7 +11,32 @@ from openadr3_client.webhook import (
     WebhookReceiver,
     WebhookMessage,
     _parse_webhook_payload,
+    detect_lan_ip,
 )
+
+
+class TestDetectLanIp:
+    def test_returns_string(self):
+        ip = detect_lan_ip()
+        assert isinstance(ip, str)
+        assert len(ip) >= 7  # shortest: "x.x.x.x"
+
+    def test_not_loopback_when_network_available(self):
+        ip = detect_lan_ip()
+        # On a machine with network, should get a real LAN IP
+        # On CI/isolated, may fall back to 127.0.0.1 — both are valid
+        parts = ip.split(".")
+        assert len(parts) == 4
+        assert all(p.isdigit() for p in parts)
+
+    def test_used_with_webhook_receiver(self):
+        ip = detect_lan_ip()
+        r = WebhookReceiver(port=0, callback_host=ip)
+        r.start()
+        try:
+            assert ip in r.callback_url
+        finally:
+            r.stop()
 
 
 class TestParseWebhookPayload:

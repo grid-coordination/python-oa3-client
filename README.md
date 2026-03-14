@@ -207,20 +207,34 @@ subscription. This URL must be **reachable from the VTN**, which means:
 - **`port=0`** (the default) lets the OS assign an ephemeral port, which is
   safe for running multiple clients on the same host. The actual port is
   available via `webhook_callback_url` after `start()`.
-- If behind NAT or a firewall, you may need port forwarding or a reverse proxy.
+
+Webhooks work well in two common scenarios:
+
+- **Same subnet** (home LAN, on-prem) — use `detect_lan_ip()` to auto-discover
+  the client's LAN address
+- **Cloud-to-cloud** — provide the client's known public hostname or load
+  balancer URL
+
+Webhooks behind NATing firewalls are uncommon — MQTT is usually a better fit for
+those environments.
 
 ```python
 # Same host as VTN (testing/development)
 client.start_webhook_server()  # callback_host defaults to 127.0.0.1
 
-# VTN on a different host (provide a routable address)
-client.start_webhook_server(callback_host="10.0.1.42")
+# Same subnet — auto-detect LAN IP
+from openadr3_client import detect_lan_ip
+client.start_webhook_server(callback_host=detect_lan_ip())
+# => callback_url: http://192.168.1.50:54321/notifications
+
+# Cloud — user provides their known public hostname
+client.start_webhook_server(callback_host="ven42.example.com")
 
 # Multiple clients on the same host (each gets a unique port)
-client1.start_webhook_server(callback_host="10.0.1.42")
-client2.start_webhook_server(callback_host="10.0.1.42")
-print(client1.webhook_callback_url)  # http://10.0.1.42:52341/notifications
-print(client2.webhook_callback_url)  # http://10.0.1.42:52342/notifications
+client1.start_webhook_server(callback_host=detect_lan_ip())
+client2.start_webhook_server(callback_host=detect_lan_ip())
+print(client1.webhook_callback_url)  # http://192.168.1.50:52341/notifications
+print(client2.webhook_callback_url)  # http://192.168.1.50:52342/notifications
 ```
 
 ### Standalone WebhookReceiver
@@ -379,7 +393,7 @@ All return `httpx.Response`. Full CRUD for programs, events, vens, resources, re
 ### Helper functions
 
 ```python
-from openadr3_client import extract_topics, normalize_broker_uri
+from openadr3_client import extract_topics, normalize_broker_uri, detect_lan_ip
 
 # Extract topic strings from a VTN MQTT topics response
 topics = extract_topics(resp)  # => ["programs/create", "programs/update"]
@@ -387,6 +401,9 @@ topics = extract_topics(resp)  # => ["programs/create", "programs/update"]
 # Parse broker URI into (host, port, use_tls)
 host, port, tls = normalize_broker_uri("mqtts://broker:8883")
 # => ("broker", 8883, True)
+
+# Detect this machine's LAN IP (for webhook callback_host)
+ip = detect_lan_ip()  # => "192.168.1.50"
 ```
 
 ## Examples
