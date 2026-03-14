@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 from urllib.parse import urlparse
 
-from ebus_mqtt_client import MqttClient
 from openadr3.entities import coerce_notification, is_notification
 
 log = logging.getLogger(__name__)
@@ -95,6 +94,14 @@ class MQTTConnection:
 
     def connect(self) -> None:
         """Connect to the MQTT broker."""
+        try:
+            from ebus_mqtt_client import MqttClient
+        except ImportError:
+            raise ImportError(
+                "ebus-mqtt-client is required for MQTT support. "
+                "Install it with: pip install python-oa3-client[mqtt]"
+            )
+
         host, port, use_tls = normalize_broker_uri(self.broker_url)
         self._client = MqttClient(
             client_id=self.client_id,

@@ -25,12 +25,13 @@ classifiers = [
 ]
 dependencies = [
     "openadr3>=0.1.0",
-    "ebus-mqtt-client>=0.1.0",
 ]
 
 [project.optional-dependencies]
+mqtt = ["ebus-mqtt-client>=0.1.0"]
 webhooks = ["flask>=3.0.0"]
-dev = ["pytest", "flask>=3.0.0"]
+all = ["ebus-mqtt-client>=0.1.0", "flask>=3.0.0"]
+dev = ["pytest", "ebus-mqtt-client>=0.1.0", "flask>=3.0.0"]
 
 [project.urls]
 Repository = "https://github.com/grid-coordination/python-oa3-client"

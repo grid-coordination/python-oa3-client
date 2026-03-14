@@ -73,7 +73,7 @@ class TestParsePayload:
 @pytest.fixture
 def mock_mqtt_client():
     """Mock ebus_mqtt_client.MqttClient to prevent real connections."""
-    with patch("openadr3_client.mqtt.MqttClient") as mock_cls:
+    with patch("ebus_mqtt_client.MqttClient") as mock_cls:
         mock_instance = MagicMock()
         mock_instance.is_connected.return_value = True
         mock_cls.return_value = mock_instance

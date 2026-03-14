@@ -69,15 +69,17 @@ class WebhookReceiver:
     def __init__(
         self,
         host: str = "0.0.0.0",
-        port: int = 9000,
+        port: int = 0,
         bearer_token: str | None = None,
         path: str = "/notifications",
+        callback_host: str | None = None,
         on_message: Callable[[str, Any], None] | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.bearer_token = bearer_token
         self.path = path
+        self.callback_host = callback_host or "127.0.0.1"
         self.on_message_callback = on_message
         self._messages: list[WebhookMessage] = []
         self._lock = threading.Lock()
@@ -86,8 +88,12 @@ class WebhookReceiver:
 
     @property
     def callback_url(self) -> str:
-        """The URL the VTN should POST notifications to."""
-        return f"http://{self.host}:{self.port}{self.path}"
+        """The URL the VTN should POST notifications to.
+
+        Uses callback_host (not bind host) and the actual listening port
+        (resolved after start() when port=0).
+        """
+        return f"http://{self.callback_host}:{self.port}{self.path}"
 
     def start(self) -> None:
         """Start the webhook server in a background thread."""
@@ -140,14 +146,16 @@ class WebhookReceiver:
         from werkzeug.serving import make_server
 
         self._server = make_server(self.host, self.port, app)
+        # Resolve actual port (important when port=0 for OS-assigned)
+        self.port = self._server.socket.getsockname()[1]
         self._server_thread = threading.Thread(
             target=self._server.serve_forever,
             daemon=True,
         )
         self._server_thread.start()
         log.info(
-            "Webhook server started: host=%s port=%d path=%s",
-            self.host, self.port, self.path,
+            "Webhook server started: %s (bind=%s:%d)",
+            self.callback_url, self.host, self.port,
         )
 
     def stop(self) -> None:

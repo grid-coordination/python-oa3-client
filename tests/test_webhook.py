@@ -71,7 +71,7 @@ def open_receiver():
 
 class TestWebhookReceiver:
     def test_callback_url(self, receiver):
-        assert receiver.callback_url == "http://0.0.0.0:19876/notifications"
+        assert receiver.callback_url == "http://127.0.0.1:19876/notifications"
 
     def test_health_check(self, receiver):
         resp = httpx.get("http://127.0.0.1:19876/notifications")
@@ -207,6 +207,55 @@ class TestWebhookReceiver:
         assert msg.payload.operation == "CREATE"
         assert hasattr(msg.payload.object, "program_name")
 
+    def test_ephemeral_port(self):
+        r = WebhookReceiver(port=0)
+        r.start()
+        try:
+            assert r.port > 0
+            resp = httpx.post(
+                f"http://127.0.0.1:{r.port}/notifications",
+                json={"ephemeral": True},
+            )
+            assert resp.status_code == 200
+            assert len(r.messages) == 1
+        finally:
+            r.stop()
+
+    def test_callback_host(self):
+        r = WebhookReceiver(port=0, callback_host="myhost.example.com")
+        r.start()
+        try:
+            assert "myhost.example.com" in r.callback_url
+            assert str(r.port) in r.callback_url
+        finally:
+            r.stop()
+
+    def test_multiple_receivers(self):
+        """Multiple receivers on different ports (multi-client scenario)."""
+        r1 = WebhookReceiver(port=0, bearer_token="t1")
+        r2 = WebhookReceiver(port=0, bearer_token="t2")
+        r1.start()
+        r2.start()
+        try:
+            assert r1.port != r2.port
+            httpx.post(
+                f"http://127.0.0.1:{r1.port}/notifications",
+                json={"target": "r1"},
+                headers={"Authorization": "Bearer t1"},
+            )
+            httpx.post(
+                f"http://127.0.0.1:{r2.port}/notifications",
+                json={"target": "r2"},
+                headers={"Authorization": "Bearer t2"},
+            )
+            assert len(r1.messages) == 1
+            assert r1.messages[0].payload == {"target": "r1"}
+            assert len(r2.messages) == 1
+            assert r2.messages[0].payload == {"target": "r2"}
+        finally:
+            r1.stop()
+            r2.stop()
+
     def test_custom_path(self):
         r = WebhookReceiver(port=19879, path="/callbacks/oa3")
         r.start()
@@ -217,7 +266,7 @@ class TestWebhookReceiver:
                 json={"custom": True},
             )
             assert resp.status_code == 200
-            assert r.callback_url == "http://0.0.0.0:19879/callbacks/oa3"
+            assert r.callback_url == "http://127.0.0.1:19879/callbacks/oa3"
             assert len(r.messages) == 1
         finally:
             r.stop()

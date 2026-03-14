@@ -414,17 +414,27 @@ class OA3Client:
     def start_webhook_server(
         self,
         host: str = "0.0.0.0",
-        port: int = 9000,
+        port: int = 0,
         bearer_token: str | None = None,
         path: str = "/notifications",
+        callback_host: str | None = None,
         on_message: Callable[[str, Any], None] | None = None,
     ) -> OA3Client:
-        """Start a webhook server to receive VTN notifications."""
+        """Start a webhook server to receive VTN notifications.
+
+        Use port=0 (default) for an OS-assigned ephemeral port — safe for
+        running multiple clients on the same host. After start, the actual
+        port is available via webhook_callback_url.
+
+        callback_host sets the hostname in callback_url (default: 127.0.0.1).
+        Set this to a routable hostname/IP when the VTN runs on a different host.
+        """
         self._webhook = WebhookReceiver(
             host=host,
             port=port,
             bearer_token=bearer_token,
             path=path,
+            callback_host=callback_host,
             on_message=on_message,
         )
         self._webhook.start()
