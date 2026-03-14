@@ -1,37 +1,35 @@
 # python-oa3-client
 
-OpenADR 3 companion client with VEN registration, MQTT notifications, webhook receiver, and lifecycle management.
+OpenADR 3 companion client with VEN registration, lifecycle management, and optional MQTT and webhook notification support.
 
-Built on top of [openadr3](https://github.com/grid-coordination/python-oa3) (Pydantic models, httpx client) and [ebus-mqtt-client](https://github.com/electrification-bus/ebus-mqtt-client) (paho-mqtt v2 wrapper).
+Built on top of [openadr3](https://github.com/grid-coordination/python-oa3) (Pydantic models, httpx HTTP client).
 
 ## Install
 
 ```bash
-pip install python-oa3-client
+pip install python-oa3-client            # core: VEN registration, API access
+pip install python-oa3-client[mqtt]      # + MQTT notifications
+pip install python-oa3-client[webhooks]  # + webhook receiver
+pip install python-oa3-client[all]       # everything
 ```
 
-This pulls in `openadr3` and `ebus-mqtt-client` automatically.
+The core package depends only on `openadr3`. Notification channels are optional extras:
 
-For webhook support (optional):
-
-```bash
-pip install python-oa3-client[webhooks]
-```
+| Extra | Adds | Dependency |
+|-------|------|------------|
+| `mqtt` | MQTT broker connection, topic discovery, message collection | [ebus-mqtt-client](https://github.com/electrification-bus/ebus-mqtt-client) (paho-mqtt v2) |
+| `webhooks` | HTTP webhook receiver for VTN callbacks | [Flask](https://flask.palletsprojects.com/) |
+| `all` | Both of the above | — |
 
 ## Architecture
-
-```
-python-oa3-client
-├── openadr3         # Base library: Pydantic models, httpx HTTP client
-└── ebus-mqtt-client # MQTT client: paho-mqtt v2, TLS, reconnection
-```
 
 `OA3Client` wraps `OpenADRClient` (from openadr3) with:
 
 - **Lifecycle management** — `start()` / `stop()` / context manager
 - **VEN registration** — find-or-create by name, stores `ven_id` in client state
-- **MQTT notifications** — connect to broker, subscribe to VTN topics, collect messages
-- **Thread-safe state** — VEN registration and MQTT messages guarded by locks
+- **MQTT notifications** (optional) — connect to broker, subscribe to VTN topics, collect messages
+- **Webhook notifications** (optional) — receive VTN callbacks via HTTP
+- **Thread-safe state** — VEN registration and message buffers guarded by locks
 - **Full API delegation** — all `OpenADRClient` methods available through `OA3Client`
 
 ## Quick start
@@ -68,7 +66,7 @@ client.stop()
 with OA3Client(client_type="ven", url=url, token=token) as client:
     client.register("my-ven")
     programs = client.programs()
-# automatically stopped — MQTT disconnected, HTTP closed
+# automatically stopped — notifications disconnected, HTTP closed
 ```
 
 ### BL (Business Logic) client
@@ -86,6 +84,8 @@ with OA3Client(client_type="bl", url=url, token=bl_token) as bl:
 ```
 
 ## MQTT notifications
+
+Requires: `pip install python-oa3-client[mqtt]`
 
 Connect to an MQTT broker, discover topics from the VTN, and collect notification messages.
 
@@ -160,14 +160,21 @@ The `MQTTConnection` translates URI schemes automatically:
 
 ## Webhook notifications
 
-Receive VTN notifications via HTTP webhooks. Requires the `webhooks` extra (`pip install python-oa3-client[webhooks]`), which adds Flask.
+Requires: `pip install python-oa3-client[webhooks]`
+
+Receive VTN notifications via HTTP callbacks. The client starts a Flask HTTP server
+in a background thread to receive POST requests from the VTN.
 
 ### Basic usage
 
 ```python
-# Start a webhook server
-client.start_webhook_server(port=9000, bearer_token="my-secret")
-print(client.webhook_callback_url)  # => "http://0.0.0.0:9000/notifications"
+# Start a webhook server (port=0 lets the OS assign a free port)
+client.start_webhook_server(
+    bearer_token="my-secret",
+    callback_host="192.168.1.50",  # IP/hostname the VTN can reach
+)
+print(client.webhook_callback_url)
+# => "http://192.168.1.50:54321/notifications"
 
 # Create a VTN subscription pointing to the webhook
 client.create_subscription({
@@ -176,7 +183,7 @@ client.create_subscription({
     "objectOperations": [{
         "objects": ["PROGRAM"],
         "operations": ["CREATE", "UPDATE", "DELETE"],
-        "callbackUrl": "http://my-host:9000/notifications",
+        "callbackUrl": client.webhook_callback_url,
         "bearerToken": "my-secret",
     }],
 })
@@ -189,15 +196,48 @@ for msg in msgs:
 client.stop_webhook_server()
 ```
 
+### Callback URL and network reachability
+
+The VTN sends notifications by POSTing to the `callbackUrl` you provide in the
+subscription. This URL must be **reachable from the VTN**, which means:
+
+- **`callback_host`** must be set to an IP address or hostname that the VTN can
+  route to. The default `127.0.0.1` only works when VTN and client run on the
+  same host.
+- **`port=0`** (the default) lets the OS assign an ephemeral port, which is
+  safe for running multiple clients on the same host. The actual port is
+  available via `webhook_callback_url` after `start()`.
+- If behind NAT or a firewall, you may need port forwarding or a reverse proxy.
+
+```python
+# Same host as VTN (testing/development)
+client.start_webhook_server()  # callback_host defaults to 127.0.0.1
+
+# VTN on a different host (provide a routable address)
+client.start_webhook_server(callback_host="10.0.1.42")
+
+# Multiple clients on the same host (each gets a unique port)
+client1.start_webhook_server(callback_host="10.0.1.42")
+client2.start_webhook_server(callback_host="10.0.1.42")
+print(client1.webhook_callback_url)  # http://10.0.1.42:52341/notifications
+print(client2.webhook_callback_url)  # http://10.0.1.42:52342/notifications
+```
+
 ### Standalone WebhookReceiver
 
 ```python
 from openadr3_client import WebhookReceiver
 
-receiver = WebhookReceiver(port=9000, bearer_token="secret", path="/callbacks")
+receiver = WebhookReceiver(
+    port=9000,
+    bearer_token="secret",
+    path="/callbacks",
+    callback_host="10.0.1.42",
+)
 receiver.start()
 
-# ... VTN sends POST to http://host:9000/callbacks ...
+# Use receiver.callback_url in your VTN subscription
+# ... VTN sends POST to http://10.0.1.42:9000/callbacks ...
 
 msgs = receiver.await_messages(n=1, timeout=5.0)
 receiver.stop()
@@ -216,10 +256,11 @@ receiver.stop()
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `host` | `"0.0.0.0"` | Bind address |
-| `port` | `9000` | Listen port |
-| `bearer_token` | `None` | Expected Bearer token (no auth if None) |
+| `host` | `"0.0.0.0"` | Bind address (listen on all interfaces) |
+| `port` | `0` | Listen port (0 = OS-assigned ephemeral) |
+| `bearer_token` | `None` | Expected Bearer token from VTN (no auth if None) |
 | `path` | `"/notifications"` | URL path to receive POSTs on |
+| `callback_host` | `"127.0.0.1"` | Hostname/IP used in `callback_url` — must be reachable from the VTN |
 | `on_message` | `None` | Callback `(path, payload) -> None` |
 
 ## MQTT topic endpoints
@@ -274,7 +315,7 @@ OA3Client(
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `start()` | `OA3Client` | Create HTTP client, connect to VTN |
-| `stop()` | `OA3Client` | Disconnect MQTT, close HTTP |
+| `stop()` | `OA3Client` | Stop MQTT, webhook server, close HTTP |
 | `__enter__` / `__exit__` | — | Context manager (calls start/stop) |
 
 #### VEN registration
@@ -308,7 +349,7 @@ Returns Pydantic models (from openadr3):
 
 All return `httpx.Response`. Full CRUD for programs, events, vens, resources, reports, subscriptions. See source for complete list.
 
-#### MQTT
+#### MQTT (requires `[mqtt]` extra)
 
 | Method | Returns | Description |
 |--------|---------|-------------|
@@ -322,12 +363,12 @@ All return `httpx.Response`. Full CRUD for programs, events, vens, resources, re
 | `clear_mqtt_messages()` | `OA3Client` | Clear message buffer |
 | `disconnect_mqtt()` | `OA3Client` | Disconnect from broker |
 
-#### Webhook
+#### Webhook (requires `[webhooks]` extra)
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `start_webhook_server(host?, port?, bearer_token?, path?, on_message?)` | `OA3Client` | Start receiver |
-| `webhook_callback_url` | `str` | URL for VTN subscription |
+| `start_webhook_server(host?, port?, bearer_token?, path?, callback_host?, on_message?)` | `OA3Client` | Start receiver |
+| `webhook_callback_url` | `str` | URL for VTN subscription (uses callback_host + actual port) |
 | `webhook_messages` | `list[WebhookMessage]` | All collected messages |
 | `webhook_messages_on_path(path)` | `list[WebhookMessage]` | Filter by path |
 | `await_webhook_messages(n, timeout=5.0)` | `list[WebhookMessage]` | Wait for N messages |
