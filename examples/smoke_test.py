@@ -96,8 +96,62 @@ def main():
         ven.disconnect_mqtt()
         print(f"  MQTT disconnected")
 
+        # ── Webhook receiver ──────────────────────────────────────
+        section("5. Webhook receiver")
+        WEBHOOK_TOKEN = "smoke-test-webhook-token"
+        ven.start_webhook_server(port=9876, bearer_token=WEBHOOK_TOKEN)
+        print(f"  Webhook server started at {ven.webhook_callback_url}")
+
+        # Create a subscription pointing to our webhook
+        sub_resp = ven.create_subscription({
+            "clientName": "smoke-test-ven",
+            "programID": program_id,
+            "objectOperations": [{
+                "objects": ["PROGRAM"],
+                "operations": ["CREATE", "UPDATE", "DELETE"],
+                "callbackUrl": f"http://127.0.0.1:9876/notifications",
+                "bearerToken": WEBHOOK_TOKEN,
+            }],
+        })
+        if success(sub_resp):
+            sub = body(sub_resp)
+            sub_id = sub.get("id")
+            print(f"  Subscription created: {sub_id}")
+        else:
+            sub_id = None
+            print(f"  Subscription creation: {sub_resp.status_code} (VTN-RI may not callback)")
+
+        # Trigger a notification by updating the program
+        with OA3Client(client_type="bl", url=VTN_URL, token=BL_TOKEN) as bl2:
+            bl2.update_program(program_id, {
+                "programName": "smoke-test-program-updated",
+                "programLongName": "Smoke Test Program Updated",
+                "programType": "PRICING_TARIFF",
+                "country": "US",
+                "principalSubdivision": "CA",
+                "intervalPeriod": {
+                    "start": "2024-01-01T00:00:00Z",
+                    "duration": "P1Y",
+                },
+            })
+            print(f"  Program updated to trigger webhook")
+
+        # Wait for webhook notification
+        webhook_msgs = ven.await_webhook_messages(1, timeout=3.0)
+        print(f"  Webhook messages received: {len(webhook_msgs)}")
+        for m in webhook_msgs[:5]:
+            print(f"    path={m.path} payload_type={type(m.payload).__name__}")
+
+        ven.stop_webhook_server()
+        print(f"  Webhook server stopped")
+
+        # Clean up subscription
+        if sub_id:
+            del_resp = ven.delete_subscription(sub_id)
+            print(f"  Delete subscription {sub_id}: {del_resp.status_code}")
+
         # ── VEN-scoped topic methods ─────────────────────────────
-        section("5. VEN-scoped endpoints (default to registered ven_id)")
+        section("6. VEN-scoped endpoints (default to registered ven_id)")
         for method_name in [
             "get_mqtt_topics_ven",
             "get_mqtt_topics_ven_events",
@@ -109,12 +163,12 @@ def main():
             print(f"  {method_name}(): {resp.status_code}")
 
         # ── Introspection ────────────────────────────────────────
-        section("6. Introspection")
+        section("7. Introspection")
         routes = ven.all_routes()
         print(f"  Routes in spec: {len(routes)}")
 
     # ── BL cleanup ───────────────────────────────────────────────
-    section("7. Cleanup")
+    section("8. Cleanup")
     with OA3Client(client_type="bl", url=VTN_URL, token=BL_TOKEN) as bl:
         # Delete program
         resp = bl.delete_program(program_id)

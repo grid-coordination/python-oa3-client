@@ -25,6 +25,7 @@ from openadr3.entities.models import (
 )
 
 from openadr3_client.mqtt import MQTTConnection, MQTTMessage
+from openadr3_client.webhook import WebhookReceiver, WebhookMessage
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class OA3Client:
         self._ven_id: str | None = None
         self._ven_name: str | None = None
         self._mqtt: MQTTConnection | None = None
+        self._webhook: WebhookReceiver | None = None
 
     # -- Lifecycle --
 
@@ -93,10 +95,13 @@ class OA3Client:
         return self
 
     def stop(self) -> OA3Client:
-        """Stop the client — disconnect MQTT and close HTTP."""
+        """Stop the client — disconnect MQTT, stop webhook server, close HTTP."""
         if self._mqtt:
             self._mqtt.disconnect()
             self._mqtt = None
+        if self._webhook:
+            self._webhook.stop()
+            self._webhook = None
         if self._api:
             self._api.close()
             self._api = None
@@ -402,4 +407,63 @@ class OA3Client:
         if self._mqtt:
             self._mqtt.disconnect()
             self._mqtt = None
+        return self
+
+    # -- Webhook notifications --
+
+    def start_webhook_server(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 9000,
+        bearer_token: str | None = None,
+        path: str = "/notifications",
+        on_message: Callable[[str, Any], None] | None = None,
+    ) -> OA3Client:
+        """Start a webhook server to receive VTN notifications."""
+        self._webhook = WebhookReceiver(
+            host=host,
+            port=port,
+            bearer_token=bearer_token,
+            path=path,
+            on_message=on_message,
+        )
+        self._webhook.start()
+        return self
+
+    @property
+    def webhook(self) -> WebhookReceiver:
+        """The webhook receiver. Raises if not started."""
+        if not self._webhook:
+            raise RuntimeError("Webhook server not started. Call start_webhook_server() first.")
+        return self._webhook
+
+    @property
+    def webhook_callback_url(self) -> str:
+        """The callback URL for VTN subscription registration."""
+        return self.webhook.callback_url
+
+    @property
+    def webhook_messages(self) -> list[WebhookMessage]:
+        return self.webhook.messages
+
+    def webhook_messages_on_path(self, path: str) -> list[WebhookMessage]:
+        return self.webhook.messages_on_path(path)
+
+    def await_webhook_messages(self, n: int, timeout: float = 5.0) -> list[WebhookMessage]:
+        return self.webhook.await_messages(n, timeout)
+
+    def await_webhook_messages_on_path(
+        self, path: str, n: int, timeout: float = 5.0
+    ) -> list[WebhookMessage]:
+        return self.webhook.await_messages_on_path(path, n, timeout)
+
+    def clear_webhook_messages(self) -> OA3Client:
+        self.webhook.clear_messages()
+        return self
+
+    def stop_webhook_server(self) -> OA3Client:
+        """Stop the webhook server."""
+        if self._webhook:
+            self._webhook.stop()
+            self._webhook = None
         return self
