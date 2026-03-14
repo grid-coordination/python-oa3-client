@@ -4,17 +4,70 @@
 Requires:
   - VTN-RI running at http://localhost:8080/openadr3/3.1.0
   - Mosquitto running at localhost:1883
+
+Auth modes:
+  The VTN-RI supports multiple auth providers. This script auto-detects
+  which one is active:
+
+  - Basic auth (default on main): tokens are base64(client_id:secret)
+  - Mock auth (older branches): tokens are plain strings like "bl_token"
+
+  Override with environment variables:
+    BL_TOKEN=... VEN_TOKEN=... python examples/smoke_test.py
 """
 
+import base64
+import os
 import time
 
 from openadr3_client import OA3Client, extract_topics
 from openadr3.api import success, body
 
-VTN_URL = "http://localhost:8080/openadr3/3.1.0"
-BL_TOKEN = "bl_token"
-VEN_TOKEN = "ven_token"
-MQTT_BROKER = "mqtt://127.0.0.1:1883"
+VTN_URL = os.environ.get("VTN_URL", "http://localhost:8080/openadr3/3.1.0")
+MQTT_BROKER = os.environ.get("MQTT_BROKER", "mqtt://127.0.0.1:1883")
+
+# VTN-RI default credentials (from config.py)
+_BL_CLIENT_ID = "bl_client"
+_BL_SECRET = "1001"
+_VEN_CLIENT_ID = "ven_client"
+_VEN_SECRET = "999"
+
+
+def _basic_token(client_id: str, secret: str) -> str:
+    """Encode credentials as a basic auth token (base64 client_id:secret)."""
+    return base64.b64encode(f"{client_id}:{secret}".encode()).decode()
+
+
+def _detect_auth_mode(vtn_url: str) -> tuple[str, str]:
+    """Auto-detect VTN auth mode and return (bl_token, ven_token)."""
+    import httpx
+
+    # Try basic auth first (VTN-RI main default)
+    basic_bl = _basic_token(_BL_CLIENT_ID, _BL_SECRET)
+    resp = httpx.get(
+        f"{vtn_url}/programs",
+        headers={"Authorization": f"Bearer {basic_bl}"},
+    )
+    if resp.status_code == 200:
+        basic_ven = _basic_token(_VEN_CLIENT_ID, _VEN_SECRET)
+        print("  Auth mode: basic (base64 client_id:secret)")
+        return basic_bl, basic_ven
+
+    # Fall back to mock auth
+    resp = httpx.get(
+        f"{vtn_url}/programs",
+        headers={"Authorization": "Bearer bl_token"},
+    )
+    if resp.status_code == 200:
+        print("  Auth mode: mock (plain string tokens)")
+        return "bl_token", "ven_token"
+
+    raise RuntimeError(f"Cannot authenticate with VTN at {vtn_url}")
+
+
+# Allow env var override, otherwise auto-detect
+BL_TOKEN = os.environ.get("BL_TOKEN")
+VEN_TOKEN = os.environ.get("VEN_TOKEN")
 
 
 def section(title):
@@ -24,6 +77,14 @@ def section(title):
 
 
 def main():
+    global BL_TOKEN, VEN_TOKEN
+
+    section("0. Auth detection")
+    if BL_TOKEN and VEN_TOKEN:
+        print(f"  Using tokens from environment")
+    else:
+        BL_TOKEN, VEN_TOKEN = _detect_auth_mode(VTN_URL)
+
     # ── BL client: create a program ──────────────────────────────
     section("1. BL Client — create a program")
     with OA3Client(client_type="bl", url=VTN_URL, token=BL_TOKEN) as bl:

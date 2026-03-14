@@ -32,6 +32,29 @@ The core package depends only on `openadr3`. Notification channels are optional 
 - **Thread-safe state** — VEN registration and message buffers guarded by locks
 - **Full API delegation** — all `OpenADRClient` methods available through `OA3Client`
 
+## Authentication
+
+The client sends the `token` as a `Bearer` token in every HTTP request. The
+token format depends on the VTN's auth configuration — the client itself is
+auth-agnostic.
+
+When using the **OpenADR 3 VTN Reference Implementation**, the default auth
+provider (as of mid-2026) uses basic credentials encoded as
+`base64(client_id:secret)`:
+
+```python
+import base64
+
+# VTN-RI default credentials (from config.py)
+bl_token = base64.b64encode(b"bl_client:1001").decode()
+ven_token = base64.b64encode(b"ven_client:999").decode()
+
+bl = OA3Client(client_type="bl", url=vtn_url, token=bl_token)
+ven = OA3Client(client_type="ven", url=vtn_url, token=ven_token)
+```
+
+For production VTNs, obtain tokens via the VTN's OAuth2 / token endpoint.
+
 ## Quick start
 
 ```python
@@ -40,7 +63,7 @@ from openadr3_client import OA3Client
 client = OA3Client(
     client_type="ven",
     url="http://localhost:8080/openadr3/3.1.0",
-    token="my-token",
+    token="my-token",  # Bearer token — format depends on VTN auth config
 )
 client.start()
 
