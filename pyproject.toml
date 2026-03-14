@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "python-oa3-client"
+version = "0.1.0"
+description = "OpenADR 3 companion client with VEN registration, MQTT notifications, and lifecycle management"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "Grid Contributors"}
+]
+keywords = ["openadr", "openadr3", "mqtt", "ven", "demand-response"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "openadr3>=0.1.0",
+    "ebus-mqtt-client>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/grid-sw/python-oa3-client"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openadr3_client"]
+
+[tool.hatch.build]
+exclude = [
+    "CLAUDE.md",
+    "AGENTS.md",
+    ".claude/",
+    ".beads/",
+]
