@@ -2,7 +2,7 @@
 
 OpenADR 3 companion client with VEN registration, MQTT notifications, and lifecycle management.
 
-Python equivalent of [clj-oa3-client](https://github.com/grid-coordination/clj-oa3-client). Built on top of [openadr3](https://github.com/grid-coordination/python-oa3) (Pydantic models, httpx client) and [ebus-mqtt-client](https://github.com/electrification-bus/ebus-mqtt-client) (paho-mqtt v2 wrapper).
+Built on top of [openadr3](https://github.com/grid-coordination/python-oa3) (Pydantic models, httpx client) and [ebus-mqtt-client](https://github.com/electrification-bus/ebus-mqtt-client) (paho-mqtt v2 wrapper).
 
 ## Install
 
