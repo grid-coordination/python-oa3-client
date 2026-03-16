@@ -345,4 +345,4 @@ pytest tests/ -v
 
 ## License
 
-[MIT](LICENSE)
+[MIT License](LICENSE) — Copyright (c) 2026 Clark Communications Corporation
