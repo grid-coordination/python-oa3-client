@@ -16,6 +16,7 @@ keywords = ["openadr", "openadr3", "mqtt", "ven", "demand-response"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -35,7 +36,9 @@ all = ["ebus-mqtt-client>=0.1.0", "flask>=3.0.0", "zeroconf>=0.131.0"]
 dev = ["pytest", "ebus-mqtt-client>=0.1.0", "flask>=3.0.0", "zeroconf>=0.131.0"]
 
 [project.urls]
+Homepage = "https://github.com/grid-coordination/python-oa3-client"
 Repository = "https://github.com/grid-coordination/python-oa3-client"
+Issues = "https://github.com/grid-coordination/python-oa3-client/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openadr3_client"]
