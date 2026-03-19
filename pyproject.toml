@@ -36,7 +36,7 @@ all = ["ebus-mqtt-client>=0.1.0", "flask>=3.0.0", "zeroconf>=0.131.0"]
 dev = ["pytest", "ebus-mqtt-client>=0.1.0", "flask>=3.0.0", "zeroconf>=0.131.0"]
 
 [project.urls]
-Homepage = "https://github.com/grid-coordination/python-oa3-client"
+Homepage = "https://grid-coordination.energy"
 Repository = "https://github.com/grid-coordination/python-oa3-client"
 Issues = "https://github.com/grid-coordination/python-oa3-client/issues"
 
