@@ -1,5 +1,8 @@
 # python-oa3-client
 
+[![PyPI](https://img.shields.io/pypi/v/python-oa3-client.svg)](https://pypi.org/project/python-oa3-client/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 OpenADR 3 companion client with VEN/BL client framework, lifecycle management, and optional MQTT and webhook notification channels.
 
 Built on top of [openadr3](https://github.com/grid-coordination/python-oa3) (Pydantic models, httpx HTTP client).
