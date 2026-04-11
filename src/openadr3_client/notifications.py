@@ -7,10 +7,11 @@ the lower-level MQTTConnection and WebhookReceiver.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import Any, Protocol, runtime_checkable
 
 from openadr3_client.mqtt import MQTTConnection, MQTTMessage
-from openadr3_client.webhook import WebhookReceiver, WebhookMessage
+from openadr3_client.webhook import WebhookMessage, WebhookReceiver
 
 log = logging.getLogger(__name__)
 

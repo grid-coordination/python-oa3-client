@@ -1,19 +1,18 @@
 """Tests for openadr3_client.discovery — mDNS/DNS-SD VTN discovery."""
 
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from openadr3_client.discovery import (
+    SERVICE_TYPE,
     DiscoveredVTN,
     DiscoveryMode,
-    SERVICE_TYPE,
     _parse_txt_properties,
+    advertise_vtn,
     discover_vtns,
     resolve_url,
-    advertise_vtn,
 )
-
 
 # -- _parse_txt_properties --
 
@@ -50,14 +49,18 @@ class TestParseTxtProperties:
 class TestDiscoveredVTN:
     def test_url_from_local_url(self):
         vtn = DiscoveredVTN(
-            name="test", host="vtn.local", port=8080,
+            name="test",
+            host="vtn.local",
+            port=8080,
             local_url="http://vtn.local:8080/openadr3",
         )
         assert vtn.url == "http://vtn.local:8080/openadr3"
 
     def test_url_strips_trailing_slash(self):
         vtn = DiscoveredVTN(
-            name="test", host="vtn.local", port=8080,
+            name="test",
+            host="vtn.local",
+            port=8080,
             local_url="http://vtn.local:8080/openadr3/",
         )
         assert vtn.url == "http://vtn.local:8080/openadr3"
@@ -68,7 +71,9 @@ class TestDiscoveredVTN:
 
     def test_url_constructed_with_base_path(self):
         vtn = DiscoveredVTN(
-            name="test", host="vtn.local", port=8080,
+            name="test",
+            host="vtn.local",
+            port=8080,
             base_path="/openadr3",
         )
         assert vtn.url == "http://vtn.local:8080/openadr3"
@@ -197,8 +202,9 @@ class TestResolveUrl:
 
     @patch("openadr3_client.discovery.discover_vtns")
     def test_require_local_found(self, mock_discover):
-        vtn = DiscoveredVTN(name="v", host="vtn.local", port=8080,
-                            local_url="http://vtn.local:8080")
+        vtn = DiscoveredVTN(
+            name="v", host="vtn.local", port=8080, local_url="http://vtn.local:8080"
+        )
         mock_discover.return_value = [vtn]
         assert resolve_url("require_local", None) == "http://vtn.local:8080"
 
@@ -210,8 +216,9 @@ class TestResolveUrl:
 
     @patch("openadr3_client.discovery.discover_vtns")
     def test_prefer_local_found(self, mock_discover):
-        vtn = DiscoveredVTN(name="v", host="vtn.local", port=8080,
-                            local_url="http://vtn.local:8080")
+        vtn = DiscoveredVTN(
+            name="v", host="vtn.local", port=8080, local_url="http://vtn.local:8080"
+        )
         mock_discover.return_value = [vtn]
         assert resolve_url("prefer_local", "http://cloud.vtn.com") == "http://vtn.local:8080"
 
@@ -228,8 +235,9 @@ class TestResolveUrl:
 
     @patch("openadr3_client.discovery.discover_vtns")
     def test_local_with_fallback_found(self, mock_discover):
-        vtn = DiscoveredVTN(name="v", host="vtn.local", port=8080,
-                            local_url="http://vtn.local:8080")
+        vtn = DiscoveredVTN(
+            name="v", host="vtn.local", port=8080, local_url="http://vtn.local:8080"
+        )
         mock_discover.return_value = [vtn]
         assert resolve_url("local_with_fallback", "http://cloud.vtn.com") == "http://vtn.local:8080"
 
@@ -269,7 +277,7 @@ class TestAdvertiseVtn:
         mock_zc_instance = MagicMock()
         mock_zc_mod.Zeroconf.return_value = mock_zc_instance
 
-        with advertise_vtn("127.0.0.1", 8080) as adv:
+        with advertise_vtn("127.0.0.1", 8080):
             mock_zc_instance.register_service.assert_called_once()
         mock_zc_instance.unregister_service.assert_called_once()
         mock_zc_instance.close.assert_called_once()
@@ -282,7 +290,8 @@ class TestAdvertiseVtn:
         mock_zc_mod.Zeroconf.return_value = mock_zc_instance
 
         advertise_vtn(
-            "127.0.0.1", 8080,
+            "127.0.0.1",
+            8080,
             base_path="/openadr3",
             version="3.1.0",
             program_names="prog1,prog2",
@@ -302,22 +311,26 @@ class TestAdvertiseVtn:
 class TestBaseClientDiscovery:
     def test_default_discovery_never_requires_url(self):
         from openadr3_client.base import BaseClient
+
         with pytest.raises(ValueError, match="url is required"):
             BaseClient(token="tok")
 
     def test_local_with_fallback_requires_url(self):
         from openadr3_client.base import BaseClient
+
         with pytest.raises(ValueError, match="url is required.*local_with_fallback"):
             BaseClient(token="tok", discovery="local_with_fallback")
 
     def test_require_local_no_url_ok(self):
         from openadr3_client.base import BaseClient
+
         c = BaseClient(token="tok", discovery="require_local")
         assert c.url is None
         assert c.discovery_mode == DiscoveryMode.REQUIRE_LOCAL
 
     def test_prefer_local_no_url_ok(self):
         from openadr3_client.base import BaseClient
+
         c = BaseClient(token="tok", discovery="prefer_local")
         assert c.url is None
 
@@ -325,13 +338,16 @@ class TestBaseClientDiscovery:
     @patch("openadr3_client.base.create_ven_client")
     def test_start_uses_resolved_url(self, mock_create, mock_resolve):
         from openadr3_client.base import BaseClient
+
         mock_create.return_value = MagicMock()
 
         c = BaseClient(token="tok", discovery="require_local")
         c.start()
 
         mock_resolve.assert_called_once_with(
-            DiscoveryMode.REQUIRE_LOCAL, None, 3.0,
+            DiscoveryMode.REQUIRE_LOCAL,
+            None,
+            3.0,
         )
         mock_create.assert_called_once()
         assert mock_create.call_args[1]["base_url"] == "http://discovered:8080"
@@ -341,11 +357,14 @@ class TestBaseClientDiscovery:
     @patch("openadr3_client.base.create_ven_client")
     def test_start_never_mode_passes_url(self, mock_create, mock_resolve):
         from openadr3_client.base import BaseClient
+
         mock_create.return_value = MagicMock()
 
         c = BaseClient(url="http://test", token="tok")
         c.start()
 
         mock_resolve.assert_called_once_with(
-            DiscoveryMode.NEVER, "http://test", 3.0,
+            DiscoveryMode.NEVER,
+            "http://test",
+            3.0,
         )

@@ -9,14 +9,17 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from openadr3.entities import coerce_notification, is_notification
+
+if TYPE_CHECKING:
+    from ebus_mqtt_client import MqttClient
 
 log = logging.getLogger(__name__)
 
@@ -54,9 +57,7 @@ def _parse_payload(raw: bytes, topic: str) -> Any:
         return s
 
     if isinstance(parsed, dict) and is_notification(parsed):
-        return coerce_notification(
-            parsed, {"openadr/channel": "mqtt", "openadr/topic": topic}
-        )
+        return coerce_notification(parsed, {"openadr/channel": "mqtt", "openadr/topic": topic})
     return parsed
 
 
@@ -96,11 +97,11 @@ class MQTTConnection:
         """Connect to the MQTT broker."""
         try:
             from ebus_mqtt_client import MqttClient
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "ebus-mqtt-client is required for MQTT support. "
                 "Install it with: pip install python-oa3-client[mqtt]"
-            )
+            ) from err
 
         host, port, use_tls = normalize_broker_uri(self.broker_url)
         self._client = MqttClient(

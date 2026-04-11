@@ -1,17 +1,14 @@
 """Tests for openadr3_client.mqtt."""
 
 import json
-import time
-import threading
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from openadr3_client.mqtt import (
     MQTTConnection,
-    MQTTMessage,
-    normalize_broker_uri,
     _parse_payload,
+    normalize_broker_uri,
 )
 
 

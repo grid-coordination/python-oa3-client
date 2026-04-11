@@ -73,12 +73,15 @@ class BaseClient:
         if self._api:
             log.info(
                 "%s already started: url=%s",
-                type(self).__name__, self._resolved_url,
+                type(self).__name__,
+                self._resolved_url,
             )
             return self
 
         self._resolved_url = resolve_url(
-            self.discovery_mode, self.url, self.discovery_timeout,
+            self.discovery_mode,
+            self.url,
+            self.discovery_timeout,
         )
 
         if not self.token:
@@ -98,7 +101,9 @@ class BaseClient:
         )
         log.info(
             "%s started: type=%s url=%s",
-            type(self).__name__, self._client_type, self._resolved_url,
+            type(self).__name__,
+            self._client_type,
+            self._resolved_url,
         )
         return self
 
@@ -120,9 +125,7 @@ class BaseClient:
     def api(self) -> OpenADRClient:
         """The underlying OpenADRClient. Raises if not started."""
         if not self._api:
-            raise RuntimeError(
-                f"{type(self).__name__} not started. Call start() first."
-            )
+            raise RuntimeError(f"{type(self).__name__} not started. Call start() first.")
         return self._api
 
     # -- __getattr__ delegation --
@@ -136,6 +139,4 @@ class BaseClient:
                 return getattr(api, name)
             except AttributeError:
                 pass
-        raise AttributeError(
-            f"'{type(self).__name__}' object has no attribute '{name}'"
-        )
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")

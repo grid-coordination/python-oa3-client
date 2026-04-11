@@ -1,15 +1,14 @@
 """Tests for openadr3_client.webhook."""
 
 import json
-import time
 import threading
+import time
 
-import pytest
 import httpx
+import pytest
 
 from openadr3_client.webhook import (
     WebhookReceiver,
-    WebhookMessage,
     _parse_webhook_payload,
     detect_lan_ip,
 )

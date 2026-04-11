@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -71,8 +71,10 @@ class DiscoveredVTN:
         """Build from a ``zeroconf.ServiceInfo`` object."""
         props = _parse_txt_properties(info.properties or {})
         # Prefer .server (the .local hostname) over parsed addresses
-        host = info.server.rstrip(".") if info.server else (
-            info.parsed_addresses()[0] if info.parsed_addresses() else "localhost"
+        host = (
+            info.server.rstrip(".")
+            if info.server
+            else (info.parsed_addresses()[0] if info.parsed_addresses() else "localhost")
         )
         return cls(
             name=info.name,
@@ -91,6 +93,7 @@ def _import_zeroconf():
     """Lazy-import zeroconf with a helpful error message."""
     try:
         import zeroconf  # noqa: F811
+
         return zeroconf
     except ImportError:
         raise ImportError(
@@ -157,9 +160,7 @@ def resolve_url(
 
     if mode == DiscoveryMode.REQUIRE_LOCAL:
         if not discovered_url:
-            raise RuntimeError(
-                "discovery='require_local' but no VTN found via mDNS"
-            )
+            raise RuntimeError("discovery='require_local' but no VTN found via mDNS")
         return discovered_url
 
     if mode == DiscoveryMode.PREFER_LOCAL:
@@ -167,9 +168,7 @@ def resolve_url(
             return discovered_url
         if configured_url:
             return configured_url
-        raise RuntimeError(
-            "discovery='prefer_local': no VTN found via mDNS and no url configured"
-        )
+        raise RuntimeError("discovery='prefer_local': no VTN found via mDNS and no url configured")
 
     # LOCAL_WITH_FALLBACK
     if discovered_url:
@@ -241,9 +240,7 @@ def advertise_vtn(
         server=f"{host}.",
         port=port,
         properties=properties,
-        addresses=[socket.inet_aton(
-            "127.0.0.1" if host in ("localhost", "127.0.0.1") else host
-        )],
+        addresses=[socket.inet_aton("127.0.0.1" if host in ("localhost", "127.0.0.1") else host)],
     )
 
     zc = Zeroconf()

@@ -1,6 +1,6 @@
 """Tests for openadr3_client.ven — VenClient registration, program lookup, subscribe."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -54,16 +54,20 @@ class TestVenClientRegistration:
     def test_register_new_ven(self, mock_create):
         mock_api = MagicMock()
         mock_api.find_ven_by_name.return_value = None
-        mock_api.create_ven.return_value = _make_response(201, {"id": "new-ven-456", "venName": "my-ven"})
+        mock_api.create_ven.return_value = _make_response(
+            201, {"id": "new-ven-456", "venName": "my-ven"}
+        )
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
             ven.register("my-ven")
             assert ven.ven_id == "new-ven-456"
-            mock_api.create_ven.assert_called_once_with({
-                "objectType": "VEN_VEN_REQUEST",
-                "venName": "my-ven",
-            })
+            mock_api.create_ven.assert_called_once_with(
+                {
+                    "objectType": "VEN_VEN_REQUEST",
+                    "venName": "my-ven",
+                }
+            )
 
     def test_require_ven_id_not_registered(self):
         ven = VenClient(url="http://test", token="tok")
@@ -75,9 +79,7 @@ class TestVenClientProgramLookup:
     @patch("openadr3_client.base.create_ven_client")
     def test_find_program_by_name(self, mock_create):
         mock_api = MagicMock()
-        mock_api.find_program_by_name.return_value = {
-            "id": "prog-1", "programName": "pricing"
-        }
+        mock_api.find_program_by_name.return_value = {"id": "prog-1", "programName": "pricing"}
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
@@ -110,9 +112,7 @@ class TestVenClientProgramLookup:
     @patch("openadr3_client.base.create_ven_client")
     def test_resolve_program_id_queries(self, mock_create):
         mock_api = MagicMock()
-        mock_api.find_program_by_name.return_value = {
-            "id": "prog-2", "programName": "dr-program"
-        }
+        mock_api.find_program_by_name.return_value = {"id": "prog-2", "programName": "dr-program"}
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
@@ -125,18 +125,23 @@ class TestVenClientProgramLookup:
         mock_api.find_program_by_name.return_value = None
         mock_create.return_value = mock_api
 
-        with VenClient(url="http://test", token="tok") as ven:
-            with pytest.raises(KeyError, match="Program not found"):
-                ven.resolve_program_id("missing")
+        with (
+            VenClient(url="http://test", token="tok") as ven,
+            pytest.raises(KeyError, match="Program not found"),
+        ):
+            ven.resolve_program_id("missing")
 
 
 class TestVenClientNotifiers:
     @patch("openadr3_client.base.create_ven_client")
     def test_discover_notifiers(self, mock_create):
         mock_api = MagicMock()
-        mock_api.get_notifiers.return_value = _make_response(200, [
-            {"transport": "MQTT", "url": "mqtt://broker:1883"},
-        ])
+        mock_api.get_notifiers.return_value = _make_response(
+            200,
+            [
+                {"transport": "MQTT", "url": "mqtt://broker:1883"},
+            ],
+        )
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
@@ -147,9 +152,12 @@ class TestVenClientNotifiers:
     @patch("openadr3_client.base.create_ven_client")
     def test_vtn_supports_mqtt_true(self, mock_create):
         mock_api = MagicMock()
-        mock_api.get_notifiers.return_value = _make_response(200, [
-            {"transport": "MQTT", "url": "mqtt://broker:1883"},
-        ])
+        mock_api.get_notifiers.return_value = _make_response(
+            200,
+            [
+                {"transport": "MQTT", "url": "mqtt://broker:1883"},
+            ],
+        )
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
@@ -158,9 +166,12 @@ class TestVenClientNotifiers:
     @patch("openadr3_client.base.create_ven_client")
     def test_vtn_supports_mqtt_false(self, mock_create):
         mock_api = MagicMock()
-        mock_api.get_notifiers.return_value = _make_response(200, [
-            {"transport": "HTTP", "url": "http://example.com"},
-        ])
+        mock_api.get_notifiers.return_value = _make_response(
+            200,
+            [
+                {"transport": "HTTP", "url": "http://example.com"},
+            ],
+        )
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
@@ -200,9 +211,11 @@ class TestVenClientMqttTopics:
     @patch("openadr3_client.base.create_ven_client")
     def test_ven_scoped_not_registered(self, mock_create):
         mock_create.return_value = MagicMock()
-        with VenClient(url="http://test", token="tok") as ven:
-            with pytest.raises(RuntimeError, match="VEN not registered"):
-                ven.get_mqtt_topics_ven()
+        with (
+            VenClient(url="http://test", token="tok") as ven,
+            pytest.raises(RuntimeError, match="VEN not registered"),
+        ):
+            ven.get_mqtt_topics_ven()
 
 
 class TestVenClientGetattr:
@@ -227,17 +240,16 @@ class TestVenClientSubscribe:
     @patch("openadr3_client.base.create_ven_client")
     def test_subscribe_mqtt(self, mock_create):
         mock_api = MagicMock()
-        mock_api.find_program_by_name.return_value = {
-            "id": "prog-1", "programName": "pricing"
-        }
+        mock_api.find_program_by_name.return_value = {"id": "prog-1", "programName": "pricing"}
         mock_api.get_mqtt_topics_program_events.return_value = _make_response(
             200, {"topics": {"a": "openadr3/programs/prog-1/events"}}
         )
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
-            from openadr3_client.notifications import MqttChannel
             from unittest.mock import patch as p
+
+            from openadr3_client.notifications import MqttChannel
 
             with p.object(MqttChannel, "subscribe_topics") as mock_sub:
                 ch = MqttChannel.__new__(MqttChannel)

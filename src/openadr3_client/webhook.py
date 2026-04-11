@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
-
-import socket
+from typing import Any
 
 from openadr3.entities import coerce_notification, is_notification
 
@@ -66,9 +66,7 @@ def _parse_webhook_payload(raw: bytes, path: str) -> Any:
         return s
 
     if isinstance(parsed, dict) and is_notification(parsed):
-        return coerce_notification(
-            parsed, {"openadr/channel": "webhook", "openadr/path": path}
-        )
+        return coerce_notification(parsed, {"openadr/channel": "webhook", "openadr/path": path})
     return parsed
 
 
@@ -120,12 +118,12 @@ class WebhookReceiver:
     def start(self) -> None:
         """Start the webhook server in a background thread."""
         try:
-            from flask import Flask, request, abort
-        except ImportError:
+            from flask import Flask, abort, request
+        except ImportError as err:
             raise ImportError(
                 "Flask is required for webhook support. "
                 "Install it with: pip install python-oa3-client[webhooks]"
-            )
+            ) from err
 
         app = Flask(__name__)
         # Suppress Flask/werkzeug request logging
@@ -177,7 +175,9 @@ class WebhookReceiver:
         self._server_thread.start()
         log.info(
             "Webhook server started: %s (bind=%s:%d)",
-            self.callback_url, self.host, self.port,
+            self.callback_url,
+            self.host,
+            self.port,
         )
 
     def stop(self) -> None:

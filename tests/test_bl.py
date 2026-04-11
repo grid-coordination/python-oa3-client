@@ -1,6 +1,6 @@
 """Tests for openadr3_client.bl — BlClient."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from openadr3_client.bl import BlClient
 

@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 from openadr3_client.notifications import (
     MqttChannel,
-    NotificationChannel,
     WebhookChannel,
 )
 
@@ -12,12 +11,26 @@ from openadr3_client.notifications import (
 class TestNotificationChannelProtocol:
     def test_mqtt_channel_has_protocol_methods(self):
         """MqttChannel has all NotificationChannel methods."""
-        for name in ("start", "stop", "subscribe_topics", "messages", "await_messages", "clear_messages"):
+        for name in (
+            "start",
+            "stop",
+            "subscribe_topics",
+            "messages",
+            "await_messages",
+            "clear_messages",
+        ):
             assert hasattr(MqttChannel, name), f"MqttChannel missing {name}"
 
     def test_webhook_channel_has_protocol_methods(self):
         """WebhookChannel has all NotificationChannel methods."""
-        for name in ("start", "stop", "subscribe_topics", "messages", "await_messages", "clear_messages"):
+        for name in (
+            "start",
+            "stop",
+            "subscribe_topics",
+            "messages",
+            "await_messages",
+            "clear_messages",
+        ):
             assert hasattr(WebhookChannel, name), f"WebhookChannel missing {name}"
 
 

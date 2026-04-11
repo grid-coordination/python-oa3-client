@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import httpx
-
-from openadr3.api import success, body
+from openadr3.api import success
 
 from openadr3_client.base import BaseClient
 from openadr3_client.notifications import (
@@ -83,16 +83,16 @@ class VenClient(BaseClient):
                 vid = existing["id"]
                 log.info("VEN found, reusing: name=%s id=%s", ven_name, vid)
             else:
-                resp = self.api.create_ven({
-                    "objectType": "VEN_VEN_REQUEST",
-                    "venName": ven_name,
-                })
+                resp = self.api.create_ven(
+                    {
+                        "objectType": "VEN_VEN_REQUEST",
+                        "venName": ven_name,
+                    }
+                )
                 resp.raise_for_status()
                 vid = resp.json().get("id")
                 if not vid:
-                    raise RuntimeError(
-                        f"VEN registration failed: {resp.status_code} {resp.text}"
-                    )
+                    raise RuntimeError(f"VEN registration failed: {resp.status_code} {resp.text}")
                 log.info("VEN registered: name=%s id=%s", ven_name, vid)
             self._ven_id = vid
             self._ven_name = ven_name
@@ -135,9 +135,7 @@ class VenClient(BaseClient):
             return False
         # VTN-RI returns a list of notifier dicts with "transport" field
         if isinstance(notifiers, list):
-            return any(
-                n.get("transport", "").upper() == "MQTT" for n in notifiers
-            )
+            return any(n.get("transport", "").upper() == "MQTT" for n in notifiers)
         # Or it might be a dict with transport info
         return "mqtt" in str(notifiers).lower()
 
@@ -213,16 +211,20 @@ class VenClient(BaseClient):
                     all_topics.extend(topics)
             elif isinstance(channel, WebhookChannel):
                 # Create a VTN subscription pointing to the webhook
-                self.api.create_subscription({
-                    "clientName": self._ven_name or "ven-client",
-                    "programID": program_id,
-                    "objectOperations": [{
-                        "objects": objects,
-                        "operations": operations,
-                        "callbackUrl": channel.callback_url,
-                        "bearerToken": channel._receiver.bearer_token,
-                    }],
-                })
+                self.api.create_subscription(
+                    {
+                        "clientName": self._ven_name or "ven-client",
+                        "programID": program_id,
+                        "objectOperations": [
+                            {
+                                "objects": objects,
+                                "operations": operations,
+                                "callbackUrl": channel.callback_url,
+                                "bearerToken": channel._receiver.bearer_token,
+                            }
+                        ],
+                    }
+                )
 
         return all_topics
 
