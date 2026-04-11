@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 from openadr3.api import success
+from openadr3.entities import coerce
+from openadr3.entities.models import Event, Program
 
 from openadr3_client.base import BaseClient
 from openadr3_client.notifications import (
@@ -100,12 +102,23 @@ class VenClient(BaseClient):
 
     # -- Program lookup --
 
-    def find_program_by_name(self, name: str) -> dict[str, Any] | None:
-        """Query VTN for a program by programName. Caches the ID on success."""
-        result = self.api.find_program_by_name(name)
-        if result and "id" in result:
-            self._program_cache[name] = result["id"]
-        return result
+    def find_program_by_name(self, name: str) -> Program | None:
+        """Query VTN for a program by programName. Caches the ID on success.
+
+        Returns a coerced Program model (or None), matching the shape of
+        programs() and poll_events() which also return coerced models.
+        """
+        raw = self.api.find_program_by_name(name)
+        if not raw:
+            return None
+        program = coerce(raw)
+        if not isinstance(program, Program):
+            raise TypeError(
+                f"Expected Program from find_program_by_name, got {type(program).__name__}"
+            )
+        if program.id:
+            self._program_cache[name] = program.id
+        return program
 
     def resolve_program_id(self, name: str) -> str:
         """Cached name→ID lookup. Queries VTN if not cached.
@@ -230,8 +243,8 @@ class VenClient(BaseClient):
 
     # -- Poll events --
 
-    def poll_events(self, program_name: str) -> list:
-        """GET events filtered by program name."""
+    def poll_events(self, program_name: str) -> list[Event]:
+        """GET events filtered by program name. Returns coerced Event models."""
         program_id = self.resolve_program_id(program_name)
         return self.api.events(programID=program_id)
 

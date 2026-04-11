@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from openadr3.entities.models import Program
 
 from openadr3_client.ven import VenClient, extract_topics
 
@@ -79,12 +80,18 @@ class TestVenClientProgramLookup:
     @patch("openadr3_client.base.create_ven_client")
     def test_find_program_by_name(self, mock_create):
         mock_api = MagicMock()
-        mock_api.find_program_by_name.return_value = {"id": "prog-1", "programName": "pricing"}
+        mock_api.find_program_by_name.return_value = {
+            "objectType": "PROGRAM",
+            "id": "prog-1",
+            "programName": "pricing",
+        }
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
             result = ven.find_program_by_name("pricing")
-            assert result["id"] == "prog-1"
+            assert isinstance(result, Program)
+            assert result.id == "prog-1"
+            assert result.program_name == "pricing"
             assert ven._program_cache["pricing"] == "prog-1"
 
     @patch("openadr3_client.base.create_ven_client")
@@ -112,7 +119,11 @@ class TestVenClientProgramLookup:
     @patch("openadr3_client.base.create_ven_client")
     def test_resolve_program_id_queries(self, mock_create):
         mock_api = MagicMock()
-        mock_api.find_program_by_name.return_value = {"id": "prog-2", "programName": "dr-program"}
+        mock_api.find_program_by_name.return_value = {
+            "objectType": "PROGRAM",
+            "id": "prog-2",
+            "programName": "dr-program",
+        }
         mock_create.return_value = mock_api
 
         with VenClient(url="http://test", token="tok") as ven:
@@ -240,7 +251,11 @@ class TestVenClientSubscribe:
     @patch("openadr3_client.base.create_ven_client")
     def test_subscribe_mqtt(self, mock_create):
         mock_api = MagicMock()
-        mock_api.find_program_by_name.return_value = {"id": "prog-1", "programName": "pricing"}
+        mock_api.find_program_by_name.return_value = {
+            "objectType": "PROGRAM",
+            "id": "prog-1",
+            "programName": "pricing",
+        }
         mock_api.get_mqtt_topics_program_events.return_value = _make_response(
             200, {"topics": {"a": "openadr3/programs/prog-1/events"}}
         )

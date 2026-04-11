@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "python-oa3-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "OpenADR 3 companion client with VEN registration, MQTT notifications, and lifecycle management"
 readme = "README.md"
 requires-python = ">=3.10"
