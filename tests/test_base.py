@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openadr3_client.base import BaseClient
+from openadr3_client.base import DEFAULT_USER_AGENT, BaseClient
 
 
 class TestBaseClientLifecycle:
@@ -121,3 +121,33 @@ class TestBaseClientGetattr:
         c.start()
         with pytest.raises(AttributeError):
             c.totally_fake_method()
+
+
+class TestBaseClientUserAgent:
+    def test_default_user_agent(self):
+        c = BaseClient(url="http://test", token="tok")
+        assert c.user_agent == DEFAULT_USER_AGENT
+        assert "python-oa3-client/" in c.user_agent
+        assert "openadr3/" in c.user_agent
+
+    def test_custom_user_agent_appended(self):
+        c = BaseClient(url="http://test", token="tok", user_agent="my-app/1.0")
+        assert c.user_agent.startswith("python-oa3-client/")
+        assert c.user_agent.endswith("my-app/1.0")
+        assert "openadr3/" in c.user_agent
+
+    @patch("openadr3_client.base.create_ven_client")
+    def test_user_agent_passed_to_factory(self, mock_create):
+        mock_create.return_value = MagicMock()
+        c = BaseClient(url="http://test", token="tok", user_agent="my-app/2.0")
+        c.start()
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["user_agent"] == c.user_agent
+
+    @patch("openadr3_client.base.create_ven_client")
+    def test_default_user_agent_passed_to_factory(self, mock_create):
+        mock_create.return_value = MagicMock()
+        c = BaseClient(url="http://test", token="tok")
+        c.start()
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["user_agent"] == DEFAULT_USER_AGENT

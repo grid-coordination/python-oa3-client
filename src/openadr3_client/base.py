@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import logging
 import threading
+from importlib.metadata import version as _pkg_version
 from typing import Any
 
+from openadr3.api import (
+    DEFAULT_USER_AGENT as _UPSTREAM_UA,
+)
 from openadr3.api import (
     OpenADRClient,
     create_bl_client,
@@ -16,6 +20,8 @@ from openadr3.auth import fetch_token
 from openadr3_client.discovery import DiscoveryMode, resolve_url
 
 log = logging.getLogger(__name__)
+
+DEFAULT_USER_AGENT = f"python-oa3-client/{_pkg_version('python-oa3-client')} {_UPSTREAM_UA}"
 
 
 class BaseClient:
@@ -38,6 +44,7 @@ class BaseClient:
         validate: bool = False,
         discovery: str | DiscoveryMode = "never",
         discovery_timeout: float = 3.0,
+        user_agent: str | None = None,
     ) -> None:
         if not token and not (client_id and client_secret):
             raise ValueError("Provide either token or both client_id and client_secret")
@@ -57,6 +64,7 @@ class BaseClient:
         self.spec_version = spec_version
         self.spec_path = spec_path
         self.validate = validate
+        self.user_agent = f"{DEFAULT_USER_AGENT} {user_agent}" if user_agent else DEFAULT_USER_AGENT
 
         self._resolved_url: str | None = None
         self._api: OpenADRClient | None = None
@@ -98,6 +106,7 @@ class BaseClient:
             token=self.token,
             spec_path=self.spec_path,
             validate=self.validate,
+            user_agent=self.user_agent,
         )
         log.info(
             "%s started: type=%s url=%s",
