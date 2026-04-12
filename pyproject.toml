@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    "openadr3>=0.1.0",
+    "openadr3>=0.2.0",
 ]
 
 [project.optional-dependencies]

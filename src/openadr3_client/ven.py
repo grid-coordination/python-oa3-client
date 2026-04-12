@@ -8,7 +8,6 @@ from typing import Any
 
 import httpx
 from openadr3.api import success
-from openadr3.entities import coerce
 from openadr3.entities.models import Event, Program
 
 from openadr3_client.base import BaseClient
@@ -82,7 +81,7 @@ class VenClient(BaseClient):
         with self._lock:
             existing = self.api.find_ven_by_name(ven_name)
             if existing:
-                vid = existing["id"]
+                vid = existing.id
                 log.info("VEN found, reusing: name=%s id=%s", ven_name, vid)
             else:
                 resp = self.api.create_ven(
@@ -103,20 +102,9 @@ class VenClient(BaseClient):
     # -- Program lookup --
 
     def find_program_by_name(self, name: str) -> Program | None:
-        """Query VTN for a program by programName. Caches the ID on success.
-
-        Returns a coerced Program model (or None), matching the shape of
-        programs() and poll_events() which also return coerced models.
-        """
-        raw = self.api.find_program_by_name(name)
-        if not raw:
-            return None
-        program = coerce(raw)
-        if not isinstance(program, Program):
-            raise TypeError(
-                f"Expected Program from find_program_by_name, got {type(program).__name__}"
-            )
-        if program.id:
+        """Query VTN for a program by programName. Caches the ID on success."""
+        program = self.api.find_program_by_name(name)
+        if program and program.id:
             self._program_cache[name] = program.id
         return program
 
