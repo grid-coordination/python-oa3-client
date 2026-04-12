@@ -169,7 +169,7 @@ def main():
         ) as ven:
             v = ven.find_ven_by_name("mdns-smoke-ven")
             if v:
-                resp = ven.delete_ven(v["id"])
+                resp = ven.delete_ven(v.id)
                 print(f"  Deleted VEN: {resp.status_code}")
 
     # advertise_vtn context exited — service unregistered

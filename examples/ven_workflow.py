@@ -61,7 +61,7 @@ def main():
         target_name = progs[0].program_name
         program = ven.find_program_by_name(target_name)
         if program:
-            print(f"  Found program: {program['programName']} (id={program['id']})")
+            print(f"  Found program: {program.program_name} (id={program.id})")
         else:
             print(f"  Program '{target_name}' not found")
             return

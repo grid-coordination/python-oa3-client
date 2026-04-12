@@ -57,7 +57,7 @@ programs = ven.programs()
 
 # Find a specific program by name
 program = ven.find_program_by_name("residential-pricing")
-program_id = program["id"]
+program_id = program.id
 
 # Cached name→ID lookup (queries VTN on first call)
 pid = ven.resolve_program_id("residential-pricing")

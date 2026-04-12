@@ -120,7 +120,7 @@ def main():
 
         # Find program by name
         found = ven.find_program_by_name("smoke-test-program")
-        print(f"  Found by name: {found['programName'] if found else 'NOT FOUND'}")
+        print(f"  Found by name: {found.program_name if found else 'NOT FOUND'}")
 
         # List events
         evts = ven.events()
@@ -241,8 +241,8 @@ def main():
     with VenClient(url=VTN_URL, token=VEN_TOKEN) as ven:
         v = ven.find_ven_by_name("smoke-test-ven")
         if v:
-            resp = ven.delete_ven(v["id"])
-            print(f"  Delete VEN {v['id']}: {resp.status_code}")
+            resp = ven.delete_ven(v.id)
+            print(f"  Delete VEN {v.id}: {resp.status_code}")
 
     section("SMOKE TEST PASSED")
 
