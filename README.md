@@ -1,7 +1,10 @@
 # python-oa3-client
 
-[![PyPI](https://img.shields.io/pypi/v/python-oa3-client.svg)](https://pypi.org/project/python-oa3-client/)
+[![PyPI version](https://img.shields.io/pypi/v/python-oa3-client.svg)](https://pypi.org/project/python-oa3-client/)
+[![Python versions](https://img.shields.io/pypi/pyversions/python-oa3-client.svg)](https://pypi.org/project/python-oa3-client/)
+[![Lint](https://github.com/grid-coordination/python-oa3-client/actions/workflows/lint.yml/badge.svg)](https://github.com/grid-coordination/python-oa3-client/actions/workflows/lint.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 OpenADR 3 companion client with VEN/BL client framework, lifecycle management, and optional MQTT and webhook notification channels.
 
