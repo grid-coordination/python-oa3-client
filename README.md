@@ -339,6 +339,27 @@ When VenClient stops (via `stop()` or context manager exit), all channels are st
 | `time` | `float` | Unix timestamp |
 | `raw_payload` | `bytes` | Original request body |
 
+## Time and timezones
+
+`python-oa3-client` does no datetime parsing of its own — all time handling is
+delegated to [openadr3](https://github.com/grid-coordination/python-oa3),
+which is the reference compliant implementation of the cross-implementation
+zone-handling rule.
+
+- Datetime fields on coerced entities (e.g. `event.created`,
+  `interval_period.start`) and on coerced notification payloads (delivered
+  by `MqttChannel` and `WebhookChannel`) are surfaced as zone-aware
+  `pendulum.DateTime`.
+- The wire string's UTC offset is the **source of truth** and is preserved
+  end-to-end. `Z`, `+00:00`, `-07:00`, `+05:30` round-trip exactly — no
+  normalization. See [python-oa3 README — Time and Timezones](https://github.com/grid-coordination/python-oa3#time-and-timezones)
+  for the canonical specification and round-trip table.
+- Cross-implementation parity with `clj-oa3-client` (which surfaces
+  `java.time.ZonedDateTime` under the same rule).
+
+Propagation through this client's MQTT and webhook parse paths is locked in
+by `tests/test_time_propagation.py`.
+
 ## Direct API access
 
 All `OpenADRClient` methods are available on both VenClient and BlClient via `__getattr__`:
