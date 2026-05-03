@@ -70,7 +70,7 @@ ven_token = base64.b64encode(b"ven_client:999").decode()
 Clients send a composed User-Agent header for server-side log identification:
 
 ```
-python-oa3-client/0.2.1 openadr3/0.3.0 (node=a1b2c3d4e5f6)
+python-oa3-client/0.4.0 openadr3/0.3.0 (node=a1b2c3d4e5f6)
 ```
 
 Add your own identifier with the `user_agent` parameter:
@@ -81,7 +81,7 @@ ven = VenClient(
     token=token,
     user_agent="my-thermostat/1.0 (contact@example.com)",
 )
-# UA: python-oa3-client/0.2.1 openadr3/0.3.0 (node=...) my-thermostat/1.0 (contact@example.com)
+# UA: python-oa3-client/0.4.0 openadr3/0.3.0 (node=...) my-thermostat/1.0 (contact@example.com)
 ```
 
 ## mDNS/DNS-SD Discovery
