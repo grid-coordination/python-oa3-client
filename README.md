@@ -208,7 +208,19 @@ pid = ven.resolve_program_id("residential-pricing")
 ```python
 notifiers = ven.discover_notifiers()
 supports_mqtt = ven.vtn_supports_mqtt()
+
+# Extract broker URIs from /notifiers — handles both spec
+# ({"MQTT": {"URIS": [...]}}) and VTN-RI ([{"transport": "MQTT", "url": ...}])
+# response shapes. Returns [] if MQTT isn't advertised.
+uris = ven.get_mqtt_broker_uris()
+if uris:
+    mqtt = ven.add_mqtt(uris[0])
 ```
+
+URIs from `/notifiers` may use any of the `mqtt://`, `mqtts://`, `tcp://`, or
+`ssl://` schemes (or no scheme at all — `broker.example.com:1883`).
+`MqttChannel` and `MQTTConnection` accept all of these via
+`normalize_broker_uri`.
 
 ### VEN-scoped topic methods
 

@@ -8,6 +8,7 @@ import pytest
 from openadr3_client.mqtt import (
     MQTTConnection,
     _parse_payload,
+    extract_mqtt_broker_uris,
     normalize_broker_uri,
 )
 
@@ -30,6 +31,83 @@ class TestNormalizeBrokerUri:
 
     def test_ssl_scheme(self):
         assert normalize_broker_uri("ssl://broker.local") == ("broker.local", 8883, True)
+
+    def test_uppercase_scheme(self):
+        assert normalize_broker_uri("MQTTS://broker.local") == ("broker.local", 8883, True)
+
+    def test_bare_host(self):
+        assert normalize_broker_uri("broker.example.com") == ("broker.example.com", 1883, False)
+
+    def test_bare_host_with_port(self):
+        assert normalize_broker_uri("broker.example.com:9883") == (
+            "broker.example.com",
+            9883,
+            False,
+        )
+
+    def test_bare_ip_with_port(self):
+        assert normalize_broker_uri("127.0.0.1:1883") == ("127.0.0.1", 1883, False)
+
+    def test_unknown_scheme_treated_as_plain(self):
+        # An unrecognized scheme falls back to mqtt:// — be liberal in what we accept.
+        assert normalize_broker_uri("foo://broker.local:1234") == ("broker.local", 1234, False)
+
+
+class TestExtractMqttBrokerUris:
+    def test_spec_dict_shape(self):
+        notifiers = {
+            "WEBHOOK": True,
+            "MQTT": {
+                "URIS": ["mqtts://broker.vtn.example.com", "mqtt://broker.vtn.example.com:1883"],
+                "serialization": "JSON",
+                "authentication": {},
+            },
+        }
+        assert extract_mqtt_broker_uris(notifiers) == [
+            "mqtts://broker.vtn.example.com",
+            "mqtt://broker.vtn.example.com:1883",
+        ]
+
+    def test_spec_dict_shape_lowercase_keys(self):
+        notifiers = {"mqtt": {"uris": ["mqtt://broker:1883"]}}
+        assert extract_mqtt_broker_uris(notifiers) == ["mqtt://broker:1883"]
+
+    def test_spec_dict_shape_no_mqtt(self):
+        assert extract_mqtt_broker_uris({"WEBHOOK": True}) == []
+
+    def test_spec_dict_shape_single_uri_field(self):
+        notifiers = {"MQTT": {"uri": "mqtt://broker:1883"}}
+        assert extract_mqtt_broker_uris(notifiers) == ["mqtt://broker:1883"]
+
+    def test_vtn_ri_list_shape(self):
+        notifiers = [
+            {"transport": "MQTT", "url": "mqtt://broker:1883"},
+            {"transport": "WEBHOOK", "url": "https://example.com"},
+        ]
+        assert extract_mqtt_broker_uris(notifiers) == ["mqtt://broker:1883"]
+
+    def test_vtn_ri_list_uri_field_variants(self):
+        # Different VTNs may use different field names for the broker URI.
+        for field in ("url", "uri", "URI", "URL", "broker", "endpoint"):
+            notifiers = [{"transport": "MQTT", field: "mqtt://broker:1883"}]
+            assert extract_mqtt_broker_uris(notifiers) == ["mqtt://broker:1883"], field
+
+    def test_vtn_ri_list_with_uris_array_in_item(self):
+        notifiers = [
+            {"transport": "MQTT", "URIS": ["mqtts://b1:8883", "tcp://b2:1883"]},
+        ]
+        assert extract_mqtt_broker_uris(notifiers) == ["mqtts://b1:8883", "tcp://b2:1883"]
+
+    def test_empty_inputs(self):
+        assert extract_mqtt_broker_uris(None) == []
+        assert extract_mqtt_broker_uris({}) == []
+        assert extract_mqtt_broker_uris([]) == []
+
+    def test_normalizable_tcp_scheme_round_trip(self):
+        # The whole point: VTN advertises tcp://, we accept it through to normalization.
+        uris = extract_mqtt_broker_uris([{"transport": "MQTT", "url": "tcp://broker:1883"}])
+        assert uris == ["tcp://broker:1883"]
+        assert normalize_broker_uri(uris[0]) == ("broker", 1883, False)
 
 
 class TestParsePayload:

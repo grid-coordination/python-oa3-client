@@ -11,6 +11,7 @@ from openadr3.api import success
 from openadr3.entities.models import Event, Program
 
 from openadr3_client.base import BaseClient
+from openadr3_client.mqtt import extract_mqtt_broker_uris
 from openadr3_client.notifications import (
     MqttChannel,
     NotificationChannel,
@@ -130,15 +131,32 @@ class VenClient(BaseClient):
         return None
 
     def vtn_supports_mqtt(self) -> bool:
-        """Check if the VTN advertises MQTT notification support."""
+        """Check if the VTN advertises MQTT notification support.
+
+        Handles both the spec ``notifiersResponse`` dict (presence of an
+        ``MQTT`` key with a non-null binding object) and the VTN-RI list
+        shape (``[{"transport": "MQTT", ...}, ...]``).
+        """
         notifiers = self.discover_notifiers()
         if not notifiers:
             return False
-        # VTN-RI returns a list of notifier dicts with "transport" field
+        if isinstance(notifiers, dict):
+            mqtt = notifiers.get("MQTT") or notifiers.get("mqtt")
+            return bool(mqtt)
         if isinstance(notifiers, list):
-            return any(n.get("transport", "").upper() == "MQTT" for n in notifiers)
-        # Or it might be a dict with transport info
-        return "mqtt" in str(notifiers).lower()
+            return any(
+                isinstance(n, dict) and (n.get("transport") or "").upper() == "MQTT"
+                for n in notifiers
+            )
+        return False
+
+    def get_mqtt_broker_uris(self) -> list[str]:
+        """Return MQTT broker URIs the VTN advertises via ``/notifiers``.
+
+        Empty if MQTT is not advertised. Use :func:`normalize_broker_uri`
+        before passing to a connection if you need (host, port, use_tls).
+        """
+        return extract_mqtt_broker_uris(self.discover_notifiers())
 
     # -- Channel management --
 

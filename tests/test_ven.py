@@ -196,6 +196,59 @@ class TestVenClientNotifiers:
         with VenClient(url="http://test", token="tok") as ven:
             assert ven.vtn_supports_mqtt() is False
 
+    @patch("openadr3_client.base.create_ven_client")
+    def test_vtn_supports_mqtt_spec_dict_shape(self, mock_create):
+        # Spec notifiersResponse: dict with MQTT binding object
+        mock_api = MagicMock()
+        mock_api.get_notifiers.return_value = _make_response(
+            200,
+            {
+                "WEBHOOK": True,
+                "MQTT": {
+                    "URIS": ["mqtts://broker.vtn.example.com"],
+                    "serialization": "JSON",
+                    "authentication": {},
+                },
+            },
+        )
+        mock_create.return_value = mock_api
+
+        with VenClient(url="http://test", token="tok") as ven:
+            assert ven.vtn_supports_mqtt() is True
+
+    @patch("openadr3_client.base.create_ven_client")
+    def test_vtn_supports_mqtt_spec_dict_no_mqtt(self, mock_create):
+        mock_api = MagicMock()
+        mock_api.get_notifiers.return_value = _make_response(200, {"WEBHOOK": True})
+        mock_create.return_value = mock_api
+
+        with VenClient(url="http://test", token="tok") as ven:
+            assert ven.vtn_supports_mqtt() is False
+
+    @patch("openadr3_client.base.create_ven_client")
+    def test_get_mqtt_broker_uris_vtn_ri_shape(self, mock_create):
+        mock_api = MagicMock()
+        mock_api.get_notifiers.return_value = _make_response(
+            200,
+            [{"transport": "MQTT", "url": "tcp://broker:1883"}],
+        )
+        mock_create.return_value = mock_api
+
+        with VenClient(url="http://test", token="tok") as ven:
+            assert ven.get_mqtt_broker_uris() == ["tcp://broker:1883"]
+
+    @patch("openadr3_client.base.create_ven_client")
+    def test_get_mqtt_broker_uris_spec_shape(self, mock_create):
+        mock_api = MagicMock()
+        mock_api.get_notifiers.return_value = _make_response(
+            200,
+            {"MQTT": {"URIS": ["mqtts://b:8883"]}},
+        )
+        mock_create.return_value = mock_api
+
+        with VenClient(url="http://test", token="tok") as ven:
+            assert ven.get_mqtt_broker_uris() == ["mqtts://b:8883"]
+
 
 class TestVenClientMqttTopics:
     @patch("openadr3_client.base.create_ven_client")

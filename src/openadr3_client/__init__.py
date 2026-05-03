@@ -6,7 +6,12 @@ from openadr3_client.discovery import (
     advertise_vtn,
     discover_vtns,
 )
-from openadr3_client.mqtt import MQTTConnection, MQTTMessage, normalize_broker_uri
+from openadr3_client.mqtt import (
+    MQTTConnection,
+    MQTTMessage,
+    extract_mqtt_broker_uris,
+    normalize_broker_uri,
+)
 from openadr3_client.notifications import (
     MqttChannel,
     NotificationChannel,
@@ -37,5 +42,6 @@ __all__ = [
     # Helpers
     "extract_topics",
     "normalize_broker_uri",
+    "extract_mqtt_broker_uris",
     "detect_lan_ip",
 ]

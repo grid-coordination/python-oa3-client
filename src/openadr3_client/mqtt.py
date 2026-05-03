@@ -24,24 +24,83 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+_KNOWN_MQTT_SCHEMES = frozenset({"mqtt", "mqtts", "tcp", "ssl"})
+_TLS_MQTT_SCHEMES = frozenset({"mqtts", "ssl"})
+
+
 def normalize_broker_uri(uri: str) -> tuple[str, int, bool]:
     """Translate an MQTT URI into (host, port, use_tls).
 
-    Supports mqtt://, mqtts://, tcp://, ssl:// schemes.
-    Adds default ports (1883 for plain, 8883 for TLS) when omitted.
+    Liberal in what is accepted (Postel's Law):
+
+    - Recognized schemes: ``mqtt://`` and ``tcp://`` (plain, default 1883),
+      ``mqtts://`` and ``ssl://`` (TLS, default 8883). Case-insensitive.
+    - Bare or unknown-scheme inputs (``broker.example.com``,
+      ``broker.example.com:1883``) are interpreted as plain MQTT.
     """
     parsed = urlparse(uri)
     scheme = parsed.scheme.lower()
+    if scheme not in _KNOWN_MQTT_SCHEMES:
+        # Unknown or missing scheme — strip any "<scheme>://" prefix and
+        # re-parse as plain MQTT. Be liberal in what we accept.
+        rest = uri.split("://", 1)[1] if "://" in uri else uri
+        parsed = urlparse(f"mqtt://{rest}")
+        scheme = "mqtt"
+
     host = parsed.hostname or "127.0.0.1"
-
-    if scheme in ("mqtts", "ssl"):
-        use_tls = True
-        port = parsed.port or 8883
-    else:
-        use_tls = False
-        port = parsed.port or 1883
-
+    use_tls = scheme in _TLS_MQTT_SCHEMES
+    port = parsed.port or (8883 if use_tls else 1883)
     return host, port, use_tls
+
+
+def extract_mqtt_broker_uris(notifiers: Any) -> list[str]:
+    """Extract MQTT broker URIs from a ``/notifiers`` response.
+
+    Accepts both response shapes seen in the wild:
+
+    - **Spec shape** (`notifiersResponse`): ``{"WEBHOOK": true, "MQTT": {"URIS": [...], ...}}``
+    - **VTN-RI shape**: ``[{"transport": "MQTT", "url": "..."}, ...]``
+
+    Returns an empty list if no MQTT URI is advertised. Schemes are returned
+    as-is (callers should pass them through :func:`normalize_broker_uri`).
+    """
+    if not notifiers:
+        return []
+
+    if isinstance(notifiers, dict):
+        mqtt = notifiers.get("MQTT") or notifiers.get("mqtt")
+        if not isinstance(mqtt, dict):
+            return []
+        uris = mqtt.get("URIS") or mqtt.get("uris")
+        if isinstance(uris, list):
+            return [u for u in uris if isinstance(u, str)]
+        single = mqtt.get("URI") or mqtt.get("uri") or mqtt.get("url") or mqtt.get("broker")
+        return [single] if isinstance(single, str) else []
+
+    if isinstance(notifiers, list):
+        result: list[str] = []
+        for item in notifiers:
+            if not isinstance(item, dict):
+                continue
+            transport = (item.get("transport") or item.get("Transport") or "").upper()
+            if transport and transport != "MQTT":
+                continue
+            uri = (
+                item.get("url")
+                or item.get("uri")
+                or item.get("URI")
+                or item.get("URL")
+                or item.get("broker")
+                or item.get("endpoint")
+            )
+            if isinstance(uri, str):
+                result.append(uri)
+            uris = item.get("URIS") or item.get("uris")
+            if isinstance(uris, list):
+                result.extend(u for u in uris if isinstance(u, str))
+        return result
+
+    return []
 
 
 def _parse_payload(raw: bytes, topic: str) -> Any:
