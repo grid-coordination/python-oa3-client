@@ -368,6 +368,16 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
+## Contributing
+
+Issues, Discussions, and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow (and the dev commands: tests, lint, format, pre-commit). In short:
+
+- **Questions, API/design discussion, VTN behavior gaps** → [Discussions](https://github.com/grid-coordination/python-oa3-client/discussions)
+- **Confirmed bugs, channel/discovery fixes, doc errors** → [Issues](https://github.com/grid-coordination/python-oa3-client/issues)
+- **Patches** → pull requests; please open a Discussion or Issue first for non-trivial changes (new channel types, new discovery modes, new auth modes, new lifecycle hooks)
+
+Bugs in raw HTTP, coerced entities, or spec-level shapes likely belong in [python-oa3](https://github.com/grid-coordination/python-oa3) rather than here.
+
 ## License
 
 [MIT License](LICENSE) — Copyright (c) 2026 Clark Communications Corporation
